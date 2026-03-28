@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AEQUITAS — Add Driver</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+    }
+
+    .top-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .btn-back {
+      background: transparent;
+      border: 1px solid #2d3148;
+      color: #64748b;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: .82rem;
+      text-decoration: none;
+      transition: border-color .2s, color .2s;
+    }
+    .btn-back:hover { border-color: #6366f1; color: #a5b4fc; }
+
+    .logo {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: #6366f1;
+      text-transform: uppercase;
+    }
+
+    h1 { font-size: 22px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #64748b; margin-bottom: 8px; }
+
+    /* Warehouse banner — shows which warehouse admin is adding to */
+    .wh-banner {
+      background: #6366f115;
+      border: 1px solid #6366f130;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #a5b4fc;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .wh-banner strong { color: #818cf8; }
+
+    .field { margin-bottom: 18px; }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+    input, select {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 14px;
+      color: #e2e8f0;
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    input:focus, select:focus { border-color: #6366f1; }
+    input::placeholder { color: #3d4460; }
+    select option { background: #1a1d27; }
+    .hint { font-size: 11px; color: #475569; margin-top: 5px; }
+
+    .vehicle-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .vehicle-btn {
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .vehicle-btn .icon { font-size: 20px; display: block; margin-bottom: 4px; }
+    .vehicle-btn:hover { border-color: #6366f1; color: #a5b4fc; }
+    .vehicle-btn.selected { border-color: #6366f1; background: #1e2040; color: #a5b4fc; }
+
+    .submit-btn {
+      width: 100%;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 13px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+    .submit-btn:hover { background: #4f52d9; }
+    .submit-btn:disabled { background: #2d3148; color: #475569; cursor: not-allowed; }
+
+    /* Alert */
+    .alert {
+      display: none;
+      margin-top: 20px;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 13px;
+    }
+    .alert.success {
+      background: #22c55e15;
+      border: 1px solid #22c55e40;
+      color: #22c55e;
+      display: block;
+    }
+    .alert.error {
+      background: #ef444415;
+      border: 1px solid #ef444440;
+      color: #ef4444;
+      display: block;
+    }
+
+    /* Result card */
+    .result-card {
+      display: none;
+      margin-top: 20px;
+      background: #0f1117;
+      border: 1px solid #22c55e40;
+      border-radius: 12px;
+      padding: 18px 22px;
+    }
+    .result-card.show { display: block; }
+    .result-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #22c55e;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 7px 0;
+      border-bottom: 1px solid #1e2333;
+      font-size: 13px;
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { color: #64748b; }
+    .stat-value { font-weight: 700; color: #e2e8f0; }
+    .tier-badge {
+      display: inline-block;
+      background: #6366f1;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 20px;
+    }
+
+    /* Not-admin warning */
+    .not-admin {
+      text-align: center;
+      padding: 48px 24px;
+      color: #64748b;
+    }
+    .not-admin .icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .not-admin a { color: #6366f1; text-decoration: none; }
+  </style>
+</head>
+<body>
+<div class="card">
+
+  <!-- Not logged in as admin -->
+  <div id="notAdminView" style="display:none">
+    <div class="not-admin">
+      <div class="icon">🔒</div>
+      <p>You must be logged in as an admin to add drivers.</p>
+      <br/>
+      <a href="login.html">← Back to Login</a>
+    </div>
+  </div>
+
+  <!-- Admin form -->
+  <div id="adminView" style="display:none">
+    <div class="top-nav">
+      <a class="btn-back" href="admin.html">← Dashboard</a>
+      <div class="logo">AEQUITAS</div>
+    </div>
+
+    <h1>Add Driver</h1>
+    <p class="subtitle">Register a new driver to your warehouse.</p>
+
+    <div class="wh-banner">
+      🏭 Adding driver to warehouse <strong id="whLabel">—</strong>
+    </div>
+
+    <div class="field">
+      <label>Full Name</label>
+      <input type="text" id="name" placeholder="As on Aadhaar card"/>
+    </div>
+
+    <div class="field">
+      <label>Date of Birth</label>
+      <input type="text" id="dob" placeholder="DD/MM/YYYY" maxlength="10"/>
+      <div class="hint">Used to compute capacity tier automatically</div>
+    </div>
+
+    <div class="field">
+      <label>Phone Number</label>
+      <input type="text" id="phone" placeholder="10-digit mobile number" maxlength="10"/>
+    </div>
+
+    <div class="field">
+      <label>Password (driver will use this to log in)</label>
+      <input type="password" id="password" placeholder="Minimum 8 characters"/>
+    </div>
+
+    <div class="field">
+      <label>Years of Delivery Experience</label>
+      <input type="number" id="experience" placeholder="e.g. 3" min="0" max="40"/>
+      <div class="hint">5+ years adds a +1 tier bonus</div>
+    </div>
+
+    <div class="field">
+      <label>Vehicle Type</label>
+      <div class="vehicle-row">
+        <div class="vehicle-btn" id="btn-motorcycle" onclick="selectVehicle('motorcycle')">
+          <span class="icon">🏍️</span>Motorcycle
+        </div>
+        <div class="vehicle-btn" id="btn-car" onclick="selectVehicle('car')">
+          <span class="icon">🚗</span>Car
+        </div>
+        <div class="vehicle-btn" id="btn-van" onclick="selectVehicle('van')">
+          <span class="icon">🚐</span>Van
+        </div>
+        <div class="vehicle-btn" id="btn-truck" onclick="selectVehicle('truck')">
+          <span class="icon">🚛</span>Truck
+        </div>
+      </div>
+    </div>
+
+    <button class="submit-btn" id="submitBtn" onclick="submitForm()">Add Driver to Warehouse</button>
+
+    <div class="alert" id="alertBox"></div>
+
+    <div class="result-card" id="resultCard">
+      <div class="result-title">✓ Driver Added Successfully</div>
+      <div id="resultBody"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API = 'http://localhost:5000';
+
+  // ── Auth guard — must be admin ─────────────────────────────────────────────
+  const adminRaw = localStorage.getItem('aequitas_admin');
+  const admin    = adminRaw ? JSON.parse(adminRaw) : null;
+
+  if (!admin || !admin.warehouse_id) {
+    document.getElementById('notAdminView').style.display = 'block';
+  } else {
+    document.getElementById('adminView').style.display  = 'block';
+    document.getElementById('whLabel').textContent       = admin.warehouse_id;
+  }
+
+  // ── Vehicle selection ──────────────────────────────────────────────────────
+  let selectedVehicle = null;
+  const vehicles = ['motorcycle', 'car', 'van', 'truck'];
+
+  function selectVehicle(type) {
+    selectedVehicle = type;
+    vehicles.forEach(v => {
+      document.getElementById(`btn-${v}`).classList.toggle('selected', v === type);
+    });
+  }
+
+  // ── Auto-format DOB ────────────────────────────────────────────────────────
+  document.getElementById('dob').addEventListener('input', function () {
+    let v = this.value.replace(/\D/g, '');
+    if (v.length >= 5)      v = v.slice(0,2) + '/' + v.slice(2,4) + '/' + v.slice(4,8);
+    else if (v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2);
+    this.value = v;
+  });
+
+  // ── Show alert ─────────────────────────────────────────────────────────────
+  function showAlert(type, msg) {
+    const el = document.getElementById('alertBox');
+    el.className = `alert ${type}`;
+    el.textContent = msg;
+  }
+
+  function hideAlert() {
+    document.getElementById('alertBox').className = 'alert';
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  async function submitForm() {
+    hideAlert();
+    document.getElementById('resultCard').classList.remove('show');
+
+    const name       = document.getElementById('name').value.trim();
+    const dob        = document.getElementById('dob').value.trim();
+    const phone      = document.getElementById('phone').value.trim();
+    const password   = document.getElementById('password').value;
+    const experience = document.getElementById('experience').value.trim();
+
+    if (!name || !dob || !phone || !password || !experience || !selectedVehicle) {
+      showAlert('error', 'Please fill in all fields and select a vehicle type.');
+      return;
+    }
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dob)) {
+      showAlert('error', 'Date of birth must be in DD/MM/YYYY format.');
+      return;
+    }
+    if (!/^\d{10}$/.test(phone)) {
+      showAlert('error', 'Phone number must be exactly 10 digits.');
+      return;
+    }
+    if (password.length < 8) {
+      showAlert('error', 'Password must be at least 8 characters.');
+      return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled    = true;
+    btn.textContent = 'Adding driver…';
+
+    try {
+      const res = await fetch(`${API}/api/auth/driver/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          dob,
+          phone,
+          password,
+          vehicle_type:     selectedVehicle,
+          experience_years: parseInt(experience),
+          warehouse_id:     admin.warehouse_id,   // ← always uses admin's warehouse
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        const pct = Math.round((data.max_difficulty / 126) * 100);
+        document.getElementById('resultBody').innerHTML = `
+          <div class="stat-row">
+            <span class="stat-label">Name</span>
+            <span class="stat-value">${name}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Warehouse</span>
+            <span class="stat-value">${admin.warehouse_id}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Age</span>
+            <span class="stat-value">${data.age} years</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Capacity Tier</span>
+            <span class="stat-value"><span class="tier-badge">Tier ${data.capacity_tier}</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Max Route Difficulty</span>
+            <span class="stat-value">${data.max_difficulty} / 126 (${pct}%)</span>
+          </div>`;
+        document.getElementById('resultCard').classList.add('show');
+
+        // Reset form
+        ['name','dob','phone','password','experience'].forEach(id =>
+          document.getElementById(id).value = '');
+        selectedVehicle = null;
+        vehicles.forEach(v =>
+          document.getElementById(`btn-${v}`).classList.remove('selected'));
+      } else {
+        showAlert('error', data.error || 'Registration failed.');
+      }
+    } catch (e) {
+      showAlert('error', 'Could not reach server. Is Flask running on port 5000?');
+    }
+
+    btn.disabled    = false;
+    btn.textContent = 'Add Driver to Warehouse';
+  }
+</script>
+</body>
+</html>

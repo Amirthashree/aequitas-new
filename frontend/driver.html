@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AEQUITAS — Driver</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#080b10; --surface:#0f1420; --card:#151c2c; --border:#1e2a40;
+      --accent:#00d4ff; --accent2:#0099cc; --success:#00e676; --warning:#ffab00;
+      --danger:#ff3d57; --text:#e2e8f0; --muted:#4a5568; --muted2:#718096;
+      --radius:12px; --mono:'DM Mono',monospace; --display:'Syne',sans-serif;
+    }
+    body { background:var(--bg); color:var(--text); font-family:var(--mono); min-height:100vh; overflow-x:hidden; }
+
+    .topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:0 24px; height:58px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:200; }
+    .brand { font-family:var(--display); font-size:1.1rem; font-weight:800; letter-spacing:3px; color:var(--accent); }
+    .topbar-center { display:flex; flex-direction:column; align-items:center; }
+    .driver-name { font-family:var(--display); font-size:.9rem; font-weight:700; color:var(--text); }
+    .driver-meta { font-size:.68rem; color:var(--muted2); letter-spacing:1px; }
+    .topbar-right { display:flex; align-items:center; gap:12px; }
+    .tier-badge { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:4px 12px; font-size:.72rem; color:var(--accent); letter-spacing:1px; }
+    .btn-logout { background:transparent; border:1px solid var(--border); color:var(--muted2); padding:5px 12px; border-radius:8px; cursor:pointer; font-size:.75rem; font-family:var(--mono); transition:border-color .2s,color .2s; }
+    .btn-logout:hover { border-color:var(--danger); color:var(--danger); }
+
+    .progress-bar-wrap { background:var(--surface); border-bottom:1px solid var(--border); padding:10px 24px; display:flex; align-items:center; gap:16px; }
+    .progress-label { font-size:.72rem; color:var(--muted2); white-space:nowrap; letter-spacing:1px; }
+    .progress-track { flex:1; height:6px; background:var(--card); border-radius:3px; overflow:hidden; }
+    .progress-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent2),var(--accent)); transition:width .5s ease; width:0%; }
+    .progress-count { font-size:.72rem; color:var(--accent); white-space:nowrap; font-weight:500; }
+
+    .gps-banner { background:#ffab0012; border-bottom:1px solid #ffab0030; padding:7px 24px; font-size:.72rem; color:var(--warning); display:flex; align-items:center; gap:8px; letter-spacing:.5px; }
+    .gps-banner.ok { background:#00e67612; border-color:#00e67630; color:var(--success); }
+    .gps-banner.routing { background:#00d4ff12; border-color:#00d4ff30; color:var(--accent); }
+    .gps-dot { width:7px; height:7px; border-radius:50%; background:currentColor; animation:pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    .layout { display:grid; grid-template-columns:380px 1fr; height:calc(100vh - 115px); }
+    .package-list { border-right:1px solid var(--border); overflow-y:auto; background:var(--surface); }
+    .package-list::-webkit-scrollbar { width:4px; }
+    .package-list::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+    .list-header { padding:16px 20px 12px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--surface); z-index:10; }
+    .list-header h2 { font-family:var(--display); font-size:.9rem; font-weight:700; color:var(--text); letter-spacing:1px; }
+    .list-header .sub { font-size:.7rem; color:var(--muted2); margin-top:2px; }
+
+    .pkg-card { border-bottom:1px solid var(--border); padding:14px 20px; cursor:pointer; transition:background .15s; position:relative; animation:slideIn .3s ease both; }
+    @keyframes slideIn { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+    .pkg-card:hover { background:var(--card); }
+    .pkg-card.active { background:var(--card); border-left:3px solid var(--accent); }
+    .pkg-card.delivered { opacity:.45; }
+    .pkg-card.turned-down { opacity:.45; border-left:3px solid var(--danger); }
+
+    .pkg-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+    .pkg-id { font-size:.68rem; color:var(--accent); letter-spacing:2px; font-weight:500; }
+    .pkg-status-dot { width:8px; height:8px; border-radius:50%; background:var(--warning); margin-top:3px; flex-shrink:0; }
+    .pkg-status-dot.delivered { background:var(--success); }
+    .pkg-status-dot.turned-down { background:var(--danger); }
+    .pkg-dist { font-size:.65rem; color:var(--muted2); background:var(--card); border:1px solid var(--border); border-radius:4px; padding:1px 6px; letter-spacing:.5px; }
+
+    .pkg-recipient { font-family:var(--display); font-size:.88rem; font-weight:700; color:var(--text); margin-bottom:4px; }
+    .pkg-address { font-size:.72rem; color:var(--muted2); margin-bottom:8px; line-height:1.4; }
+    .pkg-tags { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
+    .tag { font-size:.65rem; padding:2px 8px; border-radius:4px; letter-spacing:.5px; font-weight:500; }
+    .tag-subarea { background:#00d4ff15; color:var(--accent);  border:1px solid #00d4ff30; }
+    .tag-weight  { background:#ffab0015; color:var(--warning); border:1px solid #ffab0030; }
+    .tag-fragile { background:#ff3d5715; color:var(--danger);  border:1px solid #ff3d5730; }
+    .tag-floor   { background:#7c5cfc15; color:#a78bfa;        border:1px solid #7c5cfc30; }
+    .tag-lift    { background:#22c55e15; color:var(--success); border:1px solid #22c55e30; }
+    .tag-gated   { background:#f59e0b15; color:#fbbf24;        border:1px solid #f59e0b30; }
+
+    .pkg-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .btn-deliver, .btn-turn { padding:7px 10px; border:none; border-radius:7px; font-size:.72rem; font-family:var(--mono); font-weight:500; cursor:pointer; letter-spacing:.5px; transition:opacity .2s,transform .1s; }
+    .btn-deliver:hover,.btn-turn:hover { opacity:.85; transform:translateY(-1px); }
+    .btn-deliver:disabled,.btn-turn:disabled { opacity:.35; cursor:not-allowed; transform:none; }
+    .btn-deliver { background:var(--success); color:#000; }
+    .btn-turn { background:transparent; border:1px solid var(--danger); color:var(--danger); }
+
+    .map-wrap { position:relative; }
+    #map { width:100%; height:100%; z-index:1; }
+    .map-overlay { position:absolute; top:14px; right:14px; z-index:10; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; font-size:.72rem; min-width:175px; }
+    .map-overlay .title { font-family:var(--display); font-size:.78rem; font-weight:700; color:var(--accent); margin-bottom:8px; letter-spacing:1px; }
+    .map-stat { display:flex; justify-content:space-between; gap:16px; margin-bottom:4px; }
+    .map-stat .lbl { color:var(--muted2); }
+    .map-stat .val { color:var(--text); font-weight:500; }
+    .btn-recalc { margin-top:10px; width:100%; background:var(--card); border:1px solid var(--accent); color:var(--accent); border-radius:7px; padding:5px 8px; font-size:.68rem; font-family:var(--mono); cursor:pointer; transition:background .2s; letter-spacing:.5px; }
+    .btn-recalc:hover { background:#00d4ff18; }
+
+    .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:40px; text-align:center; color:var(--muted2); }
+    .empty-state .icon { font-size:3rem; margin-bottom:16px; opacity:.5; }
+    .empty-state p { font-size:.82rem; line-height:1.6; }
+    .spinner-wrap { display:flex; align-items:center; justify-content:center; height:100%; color:var(--muted2); font-size:.8rem; gap:10px; }
+    .spinner { width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 20px; font-size:.82rem; z-index:999; transition:transform .3s ease; white-space:nowrap; }
+    .toast.show { transform:translateX(-50%) translateY(0); }
+    .toast.success { border-color:var(--success); color:var(--success); }
+    .toast.error { border-color:var(--danger); color:var(--danger); }
+
+    @media (max-width:768px) {
+      .layout { grid-template-columns:1fr; grid-template-rows:55vh 1fr; }
+      .map-wrap { order:-1; }
+      .package-list { height:100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">AEQUITAS</div>
+  <div class="topbar-center">
+    <div class="driver-name" id="driverName">—</div>
+    <div class="driver-meta" id="driverMeta">LOADING…</div>
+  </div>
+  <div class="topbar-right">
+    <div class="tier-badge" id="tierBadge">TIER —</div>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<div class="progress-bar-wrap">
+  <span class="progress-label">DELIVERIES</span>
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  <span class="progress-count" id="progressCount">0 / 0 delivered</span>
+</div>
+
+<div class="gps-banner" id="gpsBanner">
+  <div class="gps-dot"></div>
+  <span id="gpsText">Getting your location… route will sort nearest → farthest</span>
+</div>
+
+<div class="layout">
+  <div class="package-list">
+    <div class="list-header">
+      <h2>TODAY'S ROUTE</h2>
+      <div class="sub" id="listSub">Loading packages…</div>
+    </div>
+    <div id="packageList">
+      <div class="spinner-wrap" style="height:200px">
+        <div class="spinner"></div> Loading…
+      </div>
+    </div>
+  </div>
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="map-overlay">
+      <div class="title">📍 ROUTE STATS</div>
+      <div class="map-stat"><span class="lbl">Total</span><span class="val" id="statTotal">—</span></div>
+      <div class="map-stat"><span class="lbl">Pending</span><span class="val" id="statPending">—</span></div>
+      <div class="map-stat"><span class="lbl">Delivered</span><span class="val" id="statDelivered">—</span></div>
+      <div class="map-stat"><span class="lbl">Turned Down</span><span class="val" id="statTurned">—</span></div>
+      <div class="map-stat"><span class="lbl">Road dist</span><span class="val" id="statKm">—</span></div>
+      <div class="map-stat"><span class="lbl">Est. time</span><span class="val" id="statDur">—</span></div>
+      <button class="btn-recalc" onclick="recalcFromGPS()">⟳ Recalc from GPS</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const API  = 'http://localhost:5000';
+  const OSRM = 'https://router.project-osrm.org/route/v1/driving';
+
+  const driverRaw = localStorage.getItem('aequitas_driver');
+  if (!driverRaw) window.location.href = 'login.html';
+  const driver = JSON.parse(driverRaw || '{}');
+
+  document.getElementById('driverName').textContent = driver.name || 'Driver';
+  document.getElementById('tierBadge').textContent  = `TIER ${driver.capacity_tier || '—'}`;
+  document.getElementById('driverMeta').textContent =
+    `WH: ${driver.warehouse_id||'—'} · ${new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})}`;
+
+  const SUBAREA_COORDS = {
+    'Anna Nagar':[13.0850,80.2101],'T Nagar':[13.0418,80.2341],'T. Nagar':[13.0418,80.2341],
+    'Adyar':[13.0012,80.2565],'Velachery':[12.9815,80.2180],'Tambaram':[12.9249,80.1000],
+    'Porur':[13.0324,80.1574],'Chromepet':[12.9516,80.1462],'Perambur':[13.1143,80.2329],
+    'Sholinganallur':[12.9010,80.2279],'Mogappair':[13.0950,80.1754],'Avadi':[13.1152,80.1046],
+    'Ambattur':[13.0982,80.1688],'Besant Nagar':[13.0002,80.2668],'Kilpauk':[13.0814,80.2382],
+    'Guindy':[13.0067,80.2206],
+  };
+  const WH_ORIGIN = [13.0827, 80.2707];
+
+  let packages=[], sortedPackages=[], driverCoords=null;
+  let map=null, markers={}, routeLayer=null, driverMarker=null, activeId=null;
+
+  function haversineKm(lat1,lng1,lat2,lng2) {
+    const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+    const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+
+  function getCoords(pkg) {
+    if (pkg.lat && pkg.lng) return [pkg.lat, pkg.lng];
+    const sub = pkg.subarea || pkg.subarea_name || '';
+    return SUBAREA_COORDS[sub] || null;
+  }
+
+  // Greedy nearest-neighbour sort
+  function sortNearestFirst(pkgList, origin) {
+    const remaining = pkgList.map(p => ({ pkg:p, coords:getCoords(p) }));
+    const ordered = [];
+    let current = origin;
+    while (remaining.length) {
+      let bestIdx=0, bestDist=Infinity;
+      remaining.forEach((item,i) => {
+        const d = item.coords ? haversineKm(current[0],current[1],item.coords[0],item.coords[1]) : Infinity;
+        if (d < bestDist) { bestDist=d; bestIdx=i; }
+      });
+      const chosen = remaining.splice(bestIdx,1)[0];
+      chosen.distKm = Math.round(bestDist*10)/10;
+      ordered.push(chosen);
+      if (chosen.coords) current = chosen.coords;
+    }
+    return ordered;
+  }
+
+  // Fetch real road route from OSRM (free, no key needed)
+  async function fetchRoadRoute(waypoints) {
+    // OSRM expects lng,lat
+    const coords = waypoints.map(([lat,lng]) => `${lng},${lat}`).join(';');
+    try {
+      const res  = await fetch(`${OSRM}/${coords}?overview=full&geometries=geojson&steps=false`);
+      const data = await res.json();
+      if (data.code !== 'Ok' || !data.routes?.[0]) return null;
+      return {
+        geometry:     data.routes[0].geometry,
+        distance_km:  (data.routes[0].distance / 1000).toFixed(1),
+        duration_min: Math.round(data.routes[0].duration / 60),
+      };
+    } catch(e) { console.warn('OSRM failed:', e); return null; }
+  }
+
+  // GPS
+  function requestGPS() {
+    if (!navigator.geolocation) { setGPSBanner('GPS not supported — using warehouse as start',false); sortAndRender(WH_ORIGIN); return; }
+    setGPSBanner('Getting your location…', false);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        driverCoords = [pos.coords.latitude, pos.coords.longitude];
+        setGPSBanner(`📡 GPS locked — ${driverCoords[0].toFixed(4)}, ${driverCoords[1].toFixed(4)} · sorted nearest → farthest`, true);
+        placeDriverMarker(driverCoords);
+        sortAndRender(driverCoords);
+      },
+      () => { setGPSBanner('GPS unavailable — using warehouse as start point', false); sortAndRender(WH_ORIGIN); },
+      { timeout:8000, enableHighAccuracy:true }
+    );
+  }
+
+  function recalcFromGPS() { if (!packages.length) return; showToast('Recalculating from GPS…','success'); requestGPS(); }
+
+  function setGPSBanner(msg, ok, routing) {
+    const el = document.getElementById('gpsBanner');
+    document.getElementById('gpsText').textContent = msg;
+    el.className = `gps-banner${routing?' routing':ok?' ok':''}`;
+  }
+
+  async function sortAndRender(origin) {
+    sortedPackages = sortNearestFirst(packages, origin);
+    renderList(sortedPackages);
+    await drawRouteOnMap(sortedPackages, origin);
+    updateStats();
+  }
+
+  function initMap() {
+    map = L.map('map',{zoomControl:true}).setView([13.0827,80.2707],12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+  }
+
+  function makeIcon(status, index) {
+    const colors={pending:'#ffab00',delivered:'#00e676','turned-down':'#ff3d57'};
+    const color = colors[status] || '#ffab00';
+    const num = index!==undefined
+      ? `<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:9px;font-weight:bold;color:#000">${index+1}</span>` : '';
+    return L.divIcon({
+      className:'',
+      html:`<div style="position:relative;width:26px;height:26px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 10px ${color}99">${num}</div>`,
+      iconSize:[26,26],iconAnchor:[13,13],
+    });
+  }
+
+  function makeDriverIcon() {
+    return L.divIcon({
+      className:'',
+      html:`<div style="width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid #00d4ff;box-shadow:0 0 14px #00d4ffaa"></div>`,
+      iconSize:[20,20],iconAnchor:[10,10],
+    });
+  }
+
+  function placeDriverMarker(coords) {
+    if (driverMarker) map.removeLayer(driverMarker);
+    driverMarker = L.marker(coords,{icon:makeDriverIcon(),zIndexOffset:1000})
+      .addTo(map).bindPopup('<b style="font-size:12px">📍 Your Location</b>');
+  }
+
+  async function drawRouteOnMap(sorted, origin) {
+    if (routeLayer) { map.removeLayer(routeLayer); routeLayer=null; }
+    Object.values(markers).forEach(m => map.removeLayer(m));
+    markers = {};
+
+    const withCoords = sorted.filter(x => x.coords !== null);
+    if (!withCoords.length) return;
+
+    const waypoints = [origin, ...withCoords.map(x => x.coords)];
+    const bounds    = [...waypoints];
+
+    // Place stop markers immediately
+    withCoords.forEach(({pkg:p, coords}, stopIdx) => {
+      const status = p._localStatus || p.status || 'pending';
+      const m = L.marker(coords,{icon:makeIcon(status,stopIdx)})
+        .addTo(map)
+        .bindPopup(`
+          <b style="font-size:13px">${p.recipient_name||p.package_id}</b><br>
+          <span style="font-size:11px;color:#666">${p.address||''}</span><br>
+          <span style="font-size:11px">⚖ ${p.weight_kg||'—'} kg &nbsp; 📍 ${p.subarea||''}</span><br>
+          <span style="font-size:11px;font-weight:bold;color:${status==='delivered'?'green':status==='turned-down'?'red':'orange'}">
+            ${status.toUpperCase()}
+          </span>
+        `);
+      m.on('click', () => scrollToCard(p.package_id));
+      markers[p.package_id] = {marker:m, coords};
+      bounds.push(coords);
+    });
+
+    map.fitBounds(bounds, {padding:[50,50]});
+
+    // Fetch road route
+    setGPSBanner('🗺 Fetching road route…', false, true);
+    routeLayer = L.layerGroup().addTo(map);
+
+    let roadData = null;
+    if (waypoints.length <= 25) {
+      roadData = await fetchRoadRoute(waypoints);
+    }
+
+    if (roadData) {
+      // Real road geometry from OSRM — convert [lng,lat] → [lat,lng] for Leaflet
+      const latlngs = roadData.geometry.coordinates.map(([lng,lat]) => [lat,lng]);
+      L.polyline(latlngs, {color:'#00d4ff', weight:4, opacity:0.85}).addTo(routeLayer);
+
+      document.getElementById('statKm').textContent  = roadData.distance_km + ' km';
+      document.getElementById('statDur').textContent = roadData.duration_min + ' min';
+      const src = driverCoords ? 'GPS' : 'WH';
+      setGPSBanner(`🛣 Road route: ${roadData.distance_km} km · ~${roadData.duration_min} min from ${src}`, true);
+    } else {
+      // Fallback straight-line with direction arrows
+      L.polyline(waypoints,{color:'#00d4ff',weight:3,opacity:0.65,dashArray:'8,6'}).addTo(routeLayer);
+      waypoints.forEach((pt,i) => {
+        if (i===0) return;
+        const prev=waypoints[i-1], mid=[(prev[0]+pt[0])/2,(prev[1]+pt[1])/2];
+        const angle=Math.atan2(pt[1]-prev[1],pt[0]-prev[0])*180/Math.PI;
+        L.marker(mid,{
+          icon:L.divIcon({className:'',html:`<div style="transform:rotate(${angle}deg);font-size:14px;color:#00d4ff;text-shadow:0 0 6px #00d4ff;line-height:1">➤</div>`,iconSize:[14,14],iconAnchor:[7,7]}),
+          interactive:false,zIndexOffset:-100,
+        }).addTo(routeLayer);
+      });
+      const totalKm = sortedPackages.reduce((a,x)=>a+(x.distKm||0),0).toFixed(1);
+      document.getElementById('statKm').textContent  = `~${totalKm} km`;
+      document.getElementById('statDur').textContent = '—';
+      setGPSBanner('Straight-line shown (road routing unavailable)', false);
+    }
+  }
+
+  function updateMarker(pkgId, status) {
+    const entry=markers[pkgId]; if (!entry) return;
+    const idx=sortedPackages.findIndex(x=>x.pkg.package_id===pkgId);
+    entry.marker.setIcon(makeIcon(status,idx));
+  }
+
+  function scrollToCard(pkgId) {
+    const card=document.getElementById(`card-${pkgId}`);
+    if (card) { card.scrollIntoView({behavior:'smooth',block:'center'}); setActive(pkgId); }
+  }
+
+  function setActive(pkgId) {
+    if (activeId) { const prev=document.getElementById(`card-${activeId}`); if (prev) prev.classList.remove('active'); }
+    activeId=pkgId;
+    const curr=document.getElementById(`card-${pkgId}`);
+    if (curr) curr.classList.add('active');
+    const entry=markers[pkgId];
+    if (entry&&map) { map.panTo(entry.coords,{animate:true}); entry.marker.openPopup(); }
+  }
+
+  async function loadPackages() {
+    try {
+      const res  = await fetch(`${API}/api/driver/packages/today?driver_id=${driver.driver_id}`);
+      const data = await res.json();
+      packages   = (data.packages||[]).map(p=>({...p, _localStatus:p.status||'pending'}));
+    } catch { packages=[]; }
+    await sortAndRender(driverCoords || WH_ORIGIN);
+  }
+
+  function renderList(sorted) {
+    const container = document.getElementById('packageList');
+    document.getElementById('listSub').textContent =
+      `${packages.length} package${packages.length!==1?'s':''} — sorted nearest → farthest`;
+
+    if (!sorted.length) {
+      container.innerHTML=`<div class="empty-state"><div class="icon">📭</div><p>No packages assigned to you today.<br>Check back after the pipeline runs.</p></div>`;
+      return;
+    }
+
+    container.innerHTML = sorted.map(({pkg:p, distKm}, idx) => {
+      const status   = p._localStatus||'pending';
+      const dotClass = status==='delivered'?'delivered':status==='turned-down'?'turned-down':'';
+      const cardClass= status==='delivered'?'delivered':status==='turned-down'?'turned-down':'';
+      const done     = status==='delivered'||status==='turned-down';
+      const tags=[];
+      if (p.subarea||p.subarea_name) tags.push(`<span class="tag tag-subarea">📍 ${p.subarea||p.subarea_name}</span>`);
+      if (p.weight_kg) tags.push(`<span class="tag tag-weight">⚖ ${p.weight_kg}kg</span>`);
+      if (p.fragile)   tags.push(`<span class="tag tag-fragile">⚠ FRAGILE</span>`);
+      if (p.floor>0)   tags.push(`<span class="tag tag-floor">🏢 Floor ${p.floor}</span>`);
+      if (p.has_lift)  tags.push(`<span class="tag tag-lift">🛗 LIFT</span>`);
+      if (p.is_gated)  tags.push(`<span class="tag tag-gated">🔒 GATED</span>`);
+      const distLabel = distKm!=null ? `<span class="pkg-dist">🛣 ${distKm} km</span>` : '';
+      return `
+        <div class="pkg-card ${cardClass}" id="card-${p.package_id}" onclick="setActive('${p.package_id}')" style="animation-delay:${idx*0.04}s">
+          <div class="pkg-top">
+            <span class="pkg-id">${idx+1}. ${p.package_id}</span>
+            <div style="display:flex;align-items:center;gap:6px">${distLabel}<div class="pkg-status-dot ${dotClass}"></div></div>
+          </div>
+          <div class="pkg-recipient">${p.recipient_name||'—'}</div>
+          <div class="pkg-address">${p.address||'—'}</div>
+          <div class="pkg-tags">${tags.join('')}</div>
+          <div class="pkg-actions">
+            <button class="btn-deliver" id="btn-del-${p.package_id}" onclick="event.stopPropagation();markStatus('${p.package_id}','delivered')" ${done?'disabled':''}>✓ Delivered</button>
+            <button class="btn-turn" id="btn-turn-${p.package_id}" onclick="event.stopPropagation();markStatus('${p.package_id}','turned-down')" ${done?'disabled':''}>✕ Turn Down</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function markStatus(pkgId, newStatus) {
+    const pkg=packages.find(p=>p.package_id===pkgId); if (!pkg) return;
+    const prevStatus=pkg._localStatus; pkg._localStatus=newStatus;
+    const card=document.getElementById(`card-${pkgId}`);
+    const delBtn=document.getElementById(`btn-del-${pkgId}`);
+    const turnBtn=document.getElementById(`btn-turn-${pkgId}`);
+    if (card) { card.classList.remove('delivered','turned-down'); if (newStatus!=='pending') card.classList.add(newStatus); }
+    if (delBtn) delBtn.disabled=true;
+    if (turnBtn) turnBtn.disabled=true;
+    const dot=card?.querySelector('.pkg-status-dot');
+    if (dot) { dot.classList.remove('delivered','turned-down'); if (newStatus!=='pending') dot.classList.add(newStatus); }
+    updateMarker(pkgId,newStatus);
+    updateStats();
+    try {
+      const res=await fetch(`${API}/api/packages/${pkgId}/status`,{
+        method:'PATCH',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({status:newStatus,driver_id:driver.driver_id}),
+      });
+      if (!res.ok) throw new Error('API error');
+      showToast(newStatus==='delivered'?`✓ ${pkgId} marked delivered`:`✕ ${pkgId} turned down`,newStatus==='delivered'?'success':'error');
+    } catch {
+      pkg._localStatus=prevStatus;
+      showToast('Failed to update. Check connection.','error');
+      await sortAndRender(driverCoords||WH_ORIGIN);
+    }
+  }
+
+  function updateStats() {
+    const total=packages.length;
+    const delivered=packages.filter(p=>p._localStatus==='delivered').length;
+    const turned=packages.filter(p=>p._localStatus==='turned-down').length;
+    const pending=total-delivered-turned;
+    const pct=total?Math.round((delivered/total)*100):0;
+    document.getElementById('progressFill').style.width=`${pct}%`;
+    document.getElementById('progressCount').textContent=`${delivered} / ${total} delivered`;
+    document.getElementById('statTotal').textContent=total;
+    document.getElementById('statPending').textContent=pending;
+    document.getElementById('statDelivered').textContent=delivered;
+    document.getElementById('statTurned').textContent=turned;
+  }
+
+  let toastTimer=null;
+  function showToast(msg,type='success') {
+    const el=document.getElementById('toast');
+    el.textContent=msg; el.className=`toast ${type} show`;
+    clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2800);
+  }
+
+  function logout() { localStorage.removeItem('aequitas_driver'); window.location.href='login.html'; }
+
+  initMap();
+  loadPackages().then(()=>requestGPS());
+
+  setInterval(()=>{
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos)=>{ driverCoords=[pos.coords.latitude,pos.coords.longitude]; placeDriverMarker(driverCoords); loadPackages(); },
+        ()=>loadPackages()
+      );
+    } else loadPackages();
+  }, 60000);
+</script>
+</body>
+</html>
