@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AEQUITAS — Live Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#080b10;--surface:#0f1420;--card:#151c2c;--border:#1e2a40;
+      --accent:#00d4ff;--success:#00e676;--warning:#ffab00;--danger:#ff3d57;
+      --text:#e2e8f0;--muted2:#718096;--mono:'DM Mono',monospace;--display:'Syne',sans-serif;
+    }
+    body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh;}
+
+    .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;}
+    .brand{font-family:var(--display);font-size:1rem;font-weight:800;letter-spacing:3px;color:var(--accent);}
+    .live-badge{display:flex;align-items:center;gap:7px;font-size:.72rem;color:var(--success);letter-spacing:1px;}
+    .live-dot{width:8px;height:8px;border-radius:50%;background:var(--success);animation:pulse 1.2s infinite;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+    .driver-hero{background:var(--surface);border-bottom:1px solid var(--border);padding:20px 24px;display:flex;align-items:center;gap:20px;}
+    .driver-avatar{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#0066aa);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:1.4rem;font-weight:800;color:#fff;flex-shrink:0;}
+    .driver-info{flex:1;}
+    .driver-name{font-family:var(--display);font-size:1.1rem;font-weight:800;color:var(--text);}
+    .driver-meta{font-size:.72rem;color:var(--muted2);margin-top:3px;letter-spacing:.5px;}
+    .driver-tier{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 14px;font-size:.72rem;color:var(--accent);letter-spacing:1px;white-space:nowrap;}
+
+    .progress-section{padding:20px 24px;background:var(--surface);border-bottom:1px solid var(--border);}
+    .progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+    .progress-title{font-family:var(--display);font-size:.82rem;font-weight:700;letter-spacing:1px;color:var(--text);}
+    .progress-pct{font-family:var(--display);font-size:1.4rem;font-weight:800;color:var(--accent);}
+    .progress-track{height:8px;background:var(--card);border-radius:4px;overflow:hidden;margin-bottom:16px;}
+    .progress-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#0099cc,var(--accent));transition:width .8s ease;}
+
+    .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+    .stat-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;}
+    .stat-num{font-family:var(--display);font-size:1.5rem;font-weight:800;}
+    .stat-num.delivered{color:var(--success);}
+    .stat-num.pending{color:var(--warning);}
+    .stat-num.turned{color:var(--danger);}
+    .stat-lbl{font-size:.65rem;color:var(--muted2);margin-top:3px;letter-spacing:1px;}
+
+    #map{width:100%;height:260px;z-index:1;}
+
+    .packages-section{padding:0;}
+    .section-title{padding:14px 24px 10px;font-family:var(--display);font-size:.82rem;font-weight:700;letter-spacing:1px;color:var(--muted2);border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:5;}
+
+    .pkg-row{display:flex;align-items:flex-start;gap:14px;padding:14px 24px;border-bottom:1px solid var(--border);transition:background .15s;}
+    .pkg-row:hover{background:var(--card);}
+    .stop-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;margin-top:2px;}
+    .stop-num.pending{background:#ffab0020;color:var(--warning);border:1.5px solid #ffab0060;}
+    .stop-num.delivered{background:#00e67620;color:var(--success);border:1.5px solid #00e67660;}
+    .stop-num.turned-down{background:#ff3d5720;color:var(--danger);border:1.5px solid #ff3d5760;}
+    .pkg-body{flex:1;}
+    .pkg-name{font-family:var(--display);font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:3px;}
+    .pkg-addr{font-size:.7rem;color:var(--muted2);margin-bottom:6px;line-height:1.4;}
+    .pkg-tags{display:flex;flex-wrap:wrap;gap:5px;}
+    .tag{font-size:.62rem;padding:2px 7px;border-radius:4px;letter-spacing:.5px;}
+    .tag-area{background:#00d4ff15;color:var(--accent);border:1px solid #00d4ff30;}
+    .tag-wt{background:#ffab0015;color:var(--warning);border:1px solid #ffab0030;}
+    .tag-fragile{background:#ff3d5715;color:var(--danger);border:1px solid #ff3d5730;}
+    .pkg-status{font-size:.65rem;font-weight:700;letter-spacing:1px;margin-top:6px;}
+    .pkg-status.delivered{color:var(--success);}
+    .pkg-status.pending{color:var(--warning);}
+    .pkg-status.turned-down{color:var(--danger);}
+
+    .refresh-bar{text-align:center;padding:10px;font-size:.65rem;color:var(--muted2);letter-spacing:.5px;border-top:1px solid var(--border);}
+    .api-badge{text-align:center;padding:6px;font-size:.6rem;color:var(--muted2);letter-spacing:.5px;background:var(--card);border-bottom:1px solid var(--border);}
+    .api-badge span{color:var(--accent);}
+
+    .loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:16px;color:var(--muted2);}
+    .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .error-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:12px;color:var(--danger);text-align:center;padding:40px;}
+    .error-screen .icon{font-size:3rem;opacity:.6;}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">AEQUITAS</div>
+  <div class="live-badge"><div class="live-dot"></div>LIVE TRACKING</div>
+</div>
+
+<div id="root">
+  <div class="loading-screen">
+    <div class="spinner"></div>
+    <span>Loading driver progress…</span>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const isLocal = window.location.hostname === 'localhost' ||
+                  window.location.hostname === '127.0.0.1';
+  const API = isLocal
+    ? 'http://localhost:5000'
+    : `${window.location.protocol}//${window.location.hostname}:5000`;
+
+  const SUBAREA_COORDS = {
+    'Anna Nagar':[13.0850,80.2101],'T Nagar':[13.0418,80.2341],'T. Nagar':[13.0418,80.2341],
+    'Adyar':[13.0012,80.2565],'Velachery':[12.9815,80.2180],'Tambaram':[12.9249,80.1000],
+    'Porur':[13.0324,80.1574],'Chromepet':[12.9516,80.1462],'Perambur':[13.1143,80.2329],
+    'Sholinganallur':[12.9010,80.2279],'Mogappair':[13.0950,80.1754],'Avadi':[13.1152,80.1046],
+    'Ambattur':[13.0982,80.1688],'Besant Nagar':[13.0002,80.2668],'Kilpauk':[13.0814,80.2382],
+    'Guindy':[13.0067,80.2206],
+  };
+
+  function getCoords(pkg){
+    if(pkg.lat && pkg.lng) return [pkg.lat, pkg.lng];
+    return SUBAREA_COORDS[pkg.subarea] || null;
+  }
+
+  const params    = new URLSearchParams(window.location.search);
+  const driverId  = params.get('driver');
+  const dateParam = params.get('date') || '';
+
+  if (!driverId) {
+    document.getElementById('root').innerHTML = `
+      <div class="error-screen"><div class="icon">⚠️</div><p>No driver ID in URL.<br><small>Use tracker.html?driver=&lt;id&gt;</small></p></div>`;
+  } else {
+    load();
+    setInterval(load, 15000);
+  }
+
+  let map = null;
+
+  async function load() {
+    try {
+      const dateQuery = dateParam ? `?date=${dateParam}` : '';
+      const res = await fetch(`${API}/api/public/driver/${driverId}/progress${dateQuery}`);
+      if (!res.ok) throw new Error('not found');
+      const data = await res.json();
+      render(data);
+    } catch(e) {
+      if (!map) {
+        document.getElementById('root').innerHTML = `
+          <div class="error-screen"><div class="icon">📦</div><p>Driver not found or no data today.</p><small style="color:var(--muted2);margin-top:8px;">API: ${API}</small></div>`;
+      }
+    }
+  }
+
+  function render(data) {
+    const d    = data.driver;
+    const s    = data.summary;
+    const pkgs = data.packages;
+    const initials = (d.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+    document.getElementById('root').innerHTML = `
+      <div class="api-badge">API → <span>${API}</span></div>
+      <div class="driver-hero">
+        <div class="driver-avatar">${initials}</div>
+        <div class="driver-info">
+          <div class="driver-name">${d.name}</div>
+          <div class="driver-meta">WH: ${d.warehouse_id} &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})}</div>
+        </div>
+        <div class="driver-tier">TIER ${d.capacity_tier||'—'}</div>
+      </div>
+      <div class="progress-section">
+        <div class="progress-header">
+          <span class="progress-title">DELIVERY PROGRESS</span>
+          <span class="progress-pct">${s.pct}%</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" style="width:${s.pct}%"></div></div>
+        <div class="stats-row">
+          <div class="stat-box"><div class="stat-num delivered">${s.delivered}</div><div class="stat-lbl">DELIVERED</div></div>
+          <div class="stat-box"><div class="stat-num pending">${s.pending}</div><div class="stat-lbl">PENDING</div></div>
+          <div class="stat-box"><div class="stat-num turned">${s.turned}</div><div class="stat-lbl">TURNED DOWN</div></div>
+        </div>
+      </div>
+      <div id="mapWrap"></div>
+      <div class="packages-section">
+        <div class="section-title">ROUTE — ${s.total} STOPS</div>
+        ${pkgs.map((p,i) => {
+          const status = p.status || 'pending';
+          const tags = [];
+          if(p.subarea)   tags.push(`<span class="tag tag-area">📍 ${p.subarea}</span>`);
+          if(p.weight_kg) tags.push(`<span class="tag tag-wt">⚖ ${p.weight_kg}kg</span>`);
+          if(p.fragile)   tags.push(`<span class="tag tag-fragile">⚠ FRAGILE</span>`);
+          const statusLabel = status==='delivered'?'✓ DELIVERED':status==='turned-down'?'✕ TURNED DOWN':'● PENDING';
+          return `
+            <div class="pkg-row">
+              <div class="stop-num ${status}">${i+1}</div>
+              <div class="pkg-body">
+                <div class="pkg-name">${p.recipient_name||p.package_id}</div>
+                <div class="pkg-addr">${p.address||'—'}</div>
+                <div class="pkg-tags">${tags.join('')}</div>
+                <div class="pkg-status ${status}">${statusLabel}</div>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+      <div class="refresh-bar">AUTO-REFRESHES EVERY 15s · Last updated ${new Date().toLocaleTimeString('en-IN')}</div>
+    `;
+
+    initOrUpdateMap(pkgs);
+  }
+
+  function initOrUpdateMap(pkgs) {
+    const wrap = document.getElementById('mapWrap');
+    if (!wrap) return;
+    wrap.innerHTML = '<div id="map"></div>';
+
+    if (!map) {
+      map = L.map('map',{zoomControl:false,attributionControl:false}).setView([13.0827,80.2707],11);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+    } else {
+      map.eachLayer(layer=>{ if(!(layer instanceof L.TileLayer)) map.removeLayer(layer); });
+    }
+
+    const withCoords = pkgs.map(p=>({p, coords:getCoords(p)})).filter(x=>x.coords);
+    if(!withCoords.length) return;
+
+    const bounds = [];
+    withCoords.forEach(({p, coords}, i) => {
+      const status = p.status || 'pending';
+      const color  = status==='delivered'?'#00e676':status==='turned-down'?'#ff3d57':'#ffab00';
+      L.marker(coords, {
+        icon: L.divIcon({
+          className: '',
+          html: `<div style="position:relative;width:22px;height:22px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 8px ${color}88">
+            <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:8px;font-weight:bold;color:#000">${i+1}</span>
+          </div>`,
+          iconSize:[22,22], iconAnchor:[11,11],
+        })
+      }).addTo(map).bindPopup(`<b>${p.recipient_name||p.package_id}</b><br>${p.subarea||''}<br><b style="color:${color}">${(p.status||'pending').toUpperCase()}</b>`);
+      bounds.push(coords);
+    });
+
+    map.fitBounds(bounds, {padding:[30,30]});
+
+    // ── Real road routing via OSRM (free, no API key needed) ─────────────────
+    if(withCoords.length > 1) {
+      const coords    = withCoords.map(x => x.coords);
+      // OSRM expects longitude,latitude order
+      const waypoints = coords.map(c => `${c[1]},${c[0]}`).join(';');
+      fetch(`https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson`)
+        .then(r => r.json())
+        .then(osrm => {
+          if(osrm.routes && osrm.routes[0]) {
+            L.geoJSON(osrm.routes[0].geometry, {
+              style: { color:'#00d4ff', weight:3.5, opacity:.85 }
+            }).addTo(map);
+          } else {
+            // OSRM returned no route — fall back to dashed straight lines
+            L.polyline(coords, {color:'#00d4ff', weight:2.5, opacity:.7, dashArray:'6,6'}).addTo(map);
+          }
+        })
+        .catch(() => {
+          // Network error — fall back to dashed straight lines
+          L.polyline(coords, {color:'#00d4ff', weight:2.5, opacity:.7, dashArray:'6,6'}).addTo(map);
+        });
+    }
+  }
+</script>
+</body>
+</html>

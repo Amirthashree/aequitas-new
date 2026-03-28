@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AEQUITAS — Packages</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0f1117;
+      --surface: #1a1d27;
+      --card:    #22263a;
+      --accent:  #4f8ef7;
+      --accent2: #7c5cfc;
+      --text:    #e8eaf0;
+      --muted:   #6b7280;
+      --border:  #2e3347;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger:  #ef4444;
+      --radius:  14px;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+    .back-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: .85rem;
+      transition: border-color .2s;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .back-btn:hover { border-color: var(--accent); }
+    .brand {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+    .page-title { font-size: .9rem; color: var(--muted); }
+
+    .main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+
+    /* ── CSV Upload Card ── */
+    .upload-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+    .upload-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+    }
+    .upload-card-header h3 { font-size: .92rem; font-weight: 700; }
+    .upload-card-body { padding: 20px; }
+
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 700px) { .upload-grid { grid-template-columns: 1fr; } }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: border-color .2s, background .2s;
+      background: var(--bg);
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(79,142,247,0.05);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .drop-icon  { font-size: 2rem; margin-bottom: 8px; }
+    .drop-label { font-size: .88rem; font-weight: 600; }
+    .drop-hint  { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+
+    .file-chosen {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: rgba(79,142,247,0.08);
+      border: 1px solid rgba(79,142,247,0.3);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-top: 12px;
+      font-size: .82rem;
+    }
+    .file-chosen.visible { display: flex; }
+    .file-chosen-name { flex: 1; color: var(--accent); font-weight: 500; }
+    .file-remove {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 1rem; padding: 0; line-height: 1;
+    }
+    .file-remove:hover { color: var(--danger); }
+
+    .upload-fields { display: flex; flex-direction: column; gap: 14px; }
+    .field-group   { display: flex; flex-direction: column; gap: 6px; }
+    .field-group label { font-size: .8rem; color: var(--muted); }
+    .field-group input {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 9px 13px;
+      font-size: .88rem;
+      outline: none;
+      transition: border-color .2s;
+      width: 100%;
+    }
+    .field-group input:focus   { border-color: var(--accent); }
+    .field-group input[readonly] { color: var(--muted); cursor: not-allowed; }
+
+    .upload-actions { display: flex; gap: 10px; align-items: center; margin-top: 4px; }
+
+    .progress-wrap { display: none; margin-top: 14px; }
+    .progress-wrap.visible { display: block; }
+    .progress-label { font-size: .76rem; color: var(--muted); margin-bottom: 5px; }
+    .progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      width: 0%;
+      border-radius: 99px;
+      transition: width .3s;
+    }
+    .progress-fill.indeterminate {
+      width: 35%;
+      animation: slide 1.1s ease-in-out infinite;
+    }
+    @keyframes slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+
+    .result-box {
+      display: none;
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .result-box.visible { display: block; }
+    .result-stats { display: grid; grid-template-columns: repeat(3, 1fr); }
+    .result-stat {
+      padding: 14px 16px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+    .result-stat:last-child { border-right: none; }
+    .result-stat-val { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+    .result-stat-lbl { font-size: .72rem; color: var(--muted); margin-top: 4px; }
+    .val-inserted { color: var(--success); }
+    .val-skipped  { color: var(--warning); }
+    .val-errors   { color: var(--danger);  }
+
+    .error-rows { border-top: 1px solid var(--border); max-height: 180px; overflow-y: auto; }
+    .error-rows-hdr {
+      padding: 6px 16px;
+      font-size: .72rem;
+      color: var(--danger);
+      background: rgba(239,68,68,0.07);
+      border-bottom: 1px solid var(--border);
+    }
+    .error-row-item {
+      display: flex;
+      gap: 12px;
+      padding: 7px 16px;
+      border-bottom: 1px solid rgba(46,51,71,0.5);
+      font-size: .8rem;
+    }
+    .err-row-num { font-family: monospace; color: var(--muted); min-width: 48px; }
+    .err-reason  { color: var(--text); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: .87rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity .2s, transform .15s;
+    }
+    .btn:hover    { opacity: .88; transform: translateY(-1px); }
+    .btn:active   { transform: translateY(0); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+    .btn-primary  { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+    .btn-outline  { background: var(--card); border: 1px solid var(--border); color: var(--muted); }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+
+    .btn-assign {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 22px;
+      font-size: .9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .2s, transform .15s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-assign:hover    { opacity: .88; transform: translateY(-1px); }
+    .btn-assign:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .toolbar-left { display: flex; align-items: center; gap: 12px; }
+    .toolbar h2   { font-size: 1.1rem; font-weight: 700; }
+    .count-badge  {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: .8rem;
+      color: var(--muted);
+    }
+    .toolbar-right { display: flex; gap: 10px; align-items: center; }
+    .search-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 8px 14px;
+      font-size: .85rem;
+      outline: none;
+      width: 220px;
+      transition: border-color .2s;
+    }
+    .search-box:focus { border-color: var(--accent); }
+
+    .alert {
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: .88rem;
+      margin-bottom: 18px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+    .alert.show    { display: flex; }
+    .alert.success { background: #22c55e1a; border: 1px solid var(--success); color: #86efac; }
+    .alert.error   { background: #ef44441a; border: 1px solid var(--danger);  color: #fca5a5; }
+    .alert.info    { background: #4f8ef71a; border: 1px solid var(--accent);  color: #93c5fd; }
+
+    .summary-bar { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+    .summary-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: .82rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chip-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-pending  { background: var(--warning); }
+    .dot-assigned { background: var(--accent); }
+    .dot-amber    { background: #f97316; }
+
+    .table-wrapper {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: var(--card); position: sticky; top: 57px; z-index: 10; }
+    thead th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: .76rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    thead th.check-col { width: 40px; }
+    tbody tr { border-top: 1px solid var(--border); transition: background .15s; }
+    tbody tr:hover { background: var(--card); }
+    tbody tr.amber { background: #f59e0b0d; border-left: 3px solid var(--warning); }
+    tbody td { padding: 12px 16px; font-size: .86rem; vertical-align: middle; }
+    tbody td.mono { font-family: monospace; font-size: .8rem; color: var(--muted); }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: .74rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-pending    { background: #f59e0b22; color: var(--warning); }
+    .badge-assigned   { background: #4f8ef722; color: var(--accent); }
+    .badge-unassigned { background: #ef444422; color: var(--danger); }
+
+    .driver-cell  { display: flex; flex-direction: column; gap: 2px; }
+    .driver-name  { font-weight: 600; font-size: .85rem; }
+    .cluster-id   { font-size: .74rem; color: var(--muted); font-family: monospace; }
+
+    input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+    .state-row td { text-align: center; padding: 52px 24px; color: var(--muted); }
+    .state-row .emoji { font-size: 2rem; margin-bottom: 10px; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #ffffff44;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-overlay {
+      position: fixed; inset: 0;
+      background: #000000cc;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .progress-overlay.show { display: flex; }
+    .progress-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px 40px;
+      text-align: center;
+      min-width: 300px;
+    }
+    .progress-box .big-spinner {
+      width: 40px; height: 40px;
+      border: 4px solid #ffffff22;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    .progress-box h3 { font-size: 1rem; margin-bottom: 6px; }
+    .progress-box p  { color: var(--muted); font-size: .85rem; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <a class="back-btn" href="admin.html">← Back</a>
+    <span class="brand">AEQUITAS</span>
+    <span class="page-title">/ Packages</span>
+  </div>
+  <div style="color:var(--muted);font-size:.82rem" id="tomorrowLabel">—</div>
+</div>
+
+<div class="progress-overlay" id="progressOverlay">
+  <div class="progress-box">
+    <div class="big-spinner"></div>
+    <h3>Running Assignment Pipeline…</h3>
+    <p>Clustering packages and assigning drivers.<br/>This may take a few seconds.</p>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="alert" id="pageAlert"></div>
+
+  <!-- ══ CSV UPLOAD CARD ══ -->
+  <div class="upload-card">
+    <div class="upload-card-header">
+      <h3>📦 Upload Package CSV</h3>
+      <button class="btn btn-outline" id="templateBtn">⬇ Download Template</button>
+    </div>
+    <div class="upload-card-body">
+      <div class="upload-grid">
+
+        <div>
+          <div class="drop-zone" id="dropZone">
+            <input type="file" id="csvFile" accept=".csv"/>
+            <div class="drop-icon">📄</div>
+            <div class="drop-label">Drop CSV here or click to browse</div>
+            <div class="drop-hint">Only .csv · Required columns in template</div>
+          </div>
+          <div class="file-chosen" id="fileChosen">
+            <span>📄</span>
+            <span class="file-chosen-name" id="fileChosenName">—</span>
+            <button class="file-remove" id="fileRemove">✕</button>
+          </div>
+        </div>
+
+        <div class="upload-fields">
+          <div class="field-group">
+            <label>Warehouse ID</label>
+            <input type="text" id="uploadWarehouse" readonly placeholder="Auto-filled from session"/>
+          </div>
+          <div class="field-group">
+            <label>Delivery Date</label>
+            <input type="date" id="uploadDate"/>
+          </div>
+          <div class="upload-actions">
+            <button class="btn btn-primary" id="uploadBtn" disabled>⬆ Upload</button>
+            <span style="font-size:.78rem;color:var(--muted)" id="uploadHint">Select a CSV file first</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-wrap" id="uploadProgress">
+        <div class="progress-label" id="uploadProgressLabel">Uploading…</div>
+        <div class="progress-bar">
+          <div class="progress-fill indeterminate" id="uploadProgressFill"></div>
+        </div>
+      </div>
+
+      <div class="result-box" id="resultBox">
+        <div class="result-stats">
+          <div class="result-stat">
+            <div class="result-stat-val val-inserted" id="resInserted">0</div>
+            <div class="result-stat-lbl">Inserted</div>
+          </div>
+          <div class="result-stat">
+            <div class="result-stat-val val-skipped" id="resSkipped">0</div>
+            <div class="result-stat-lbl">Skipped</div>
+          </div>
+          <div class="result-stat">
+            <div class="result-stat-val val-errors" id="resErrors">0</div>
+            <div class="result-stat-lbl">Errors</div>
+          </div>
+        </div>
+        <div class="error-rows" id="errorRows" style="display:none">
+          <div class="error-rows-hdr">ROW ERRORS</div>
+          <div id="errorItems"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PACKAGES TABLE ══ -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <h2>Tomorrow's Packages</h2>
+      <span class="count-badge" id="totalCount">— packages</span>
+    </div>
+    <div class="toolbar-right">
+      <input class="search-box" type="text" id="searchBox"
+             placeholder="🔍 Search recipient, address…" oninput="filterTable()"/>
+      <button class="btn-assign" id="assignBtn" onclick="runAssign()">⚡ Assign All</button>
+    </div>
+  </div>
+
+  <div class="summary-bar" id="summaryBar"></div>
+
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th class="check-col"><input type="checkbox" id="selectAll" onchange="toggleAll(this)"/></th>
+          <th>Package ID</th>
+          <th>Recipient</th>
+          <th>Address</th>
+          <th>Subarea</th>
+          <th>Weight (kg)</th>
+          <th>Status</th>
+          <th>Assigned To</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr class="state-row">
+          <td colspan="8"><div class="emoji">⏳</div><div>Loading packages…</div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  const API = 'http://localhost:5000';
+
+  // ── Auth guard — localStorage (matches login.html) ────────────────────────
+  const adminRaw = localStorage.getItem('aequitas_admin');
+  if (!adminRaw) { window.location.href = 'login.html'; }
+  const admin = JSON.parse(adminRaw || '{}');
+
+  // ── Tomorrow ──────────────────────────────────────────────────────────────
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  document.getElementById('tomorrowLabel').textContent =
+    'Deliveries for: ' + tomorrow.toLocaleDateString('en-IN', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+
+  // Pre-fill upload fields from session
+  document.getElementById('uploadWarehouse').value = admin.warehouse_id || '';
+  document.getElementById('uploadDate').value = tomorrowStr;
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let allPackages   = [];
+  let assignmentMap = {};
+  let assigned      = false;
+
+  // ── Alerts ────────────────────────────────────────────────────────────────
+  function showAlert(msg, type = 'info') {
+    const el = document.getElementById('pageAlert');
+    el.textContent = msg;
+    el.className = `alert ${type} show`;
+  }
+  function clearAlert() { document.getElementById('pageAlert').className = 'alert'; }
+
+  // ══ CSV UPLOAD ════════════════════════════════════════════════════════════
+  const dropZone   = document.getElementById('dropZone');
+  const csvFile    = document.getElementById('csvFile');
+  const fileChosen = document.getElementById('fileChosen');
+  const uploadBtn  = document.getElementById('uploadBtn');
+  const uploadHint = document.getElementById('uploadHint');
+
+  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+  csvFile.addEventListener('change', () => { if (csvFile.files[0]) setFile(csvFile.files[0]); });
+
+  document.getElementById('fileRemove').addEventListener('click', () => {
+    csvFile.value = '';
+    fileChosen.classList.remove('visible');
+    uploadBtn.disabled = true;
+    uploadHint.textContent = 'Select a CSV file first';
+    document.getElementById('resultBox').classList.remove('visible');
+    document.getElementById('uploadProgress').classList.remove('visible');
+  });
+
+  function setFile(f) {
+    if (!f.name.endsWith('.csv')) { showAlert('Only .csv files are accepted.', 'error'); return; }
+    document.getElementById('fileChosenName').textContent = `${f.name}  (${(f.size/1024).toFixed(1)} KB)`;
+    fileChosen.classList.add('visible');
+    uploadBtn.disabled = false;
+    uploadHint.textContent = f.name;
+    document.getElementById('resultBox').classList.remove('visible');
+  }
+
+  uploadBtn.addEventListener('click', async () => {
+    const file = csvFile.files[0];
+    if (!file) return;
+
+    const warehouseId  = document.getElementById('uploadWarehouse').value.trim();
+    const deliveryDate = document.getElementById('uploadDate').value;
+    if (!warehouseId) { showAlert('No warehouse_id — please log in again.', 'error'); return; }
+
+    const pw = document.getElementById('uploadProgress');
+    const pf = document.getElementById('uploadProgressFill');
+    const pl = document.getElementById('uploadProgressLabel');
+    pw.classList.add('visible');
+    pf.className = 'progress-fill indeterminate';
+    pl.textContent = 'Uploading…';
+    uploadBtn.disabled = true;
+    document.getElementById('resultBox').classList.remove('visible');
+
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('warehouse_id', warehouseId);
+    fd.append('delivery_date', deliveryDate);
+
+    try {
+      const resp = await fetch(`${API}/api/admin/packages/upload`, { method: 'POST', body: fd });
+      const data = await resp.json();
+
+      pf.className = 'progress-fill';
+      pf.style.width = '100%';
+      pl.textContent = resp.ok ? 'Upload complete ✓' : 'Upload failed';
+
+      if (!resp.ok) { showAlert(data.error || 'Upload failed.', 'error'); uploadBtn.disabled = false; return; }
+
+      // Show results
+      document.getElementById('resInserted').textContent = data.inserted;
+      document.getElementById('resSkipped').textContent  = data.skipped;
+      document.getElementById('resErrors').textContent   = data.errors?.length || 0;
+      document.getElementById('resultBox').classList.add('visible');
+
+      const errorRows = document.getElementById('errorRows');
+      if (data.errors && data.errors.length > 0) {
+        errorRows.style.display = 'block';
+        document.getElementById('errorItems').innerHTML = data.errors.map(e =>
+          `<div class="error-row-item">
+             <span class="err-row-num">Row ${e.row}</span>
+             <span class="err-reason">${e.reason}</span>
+           </div>`
+        ).join('');
+      } else {
+        errorRows.style.display = 'none';
+      }
+
+      showAlert(`✅ Inserted ${data.inserted} package${data.inserted !== 1 ? 's' : ''} for ${data.delivery_date}`, 'success');
+      uploadBtn.disabled = false;
+      loadPackages();
+
+    } catch {
+      pf.className = 'progress-fill'; pf.style.width = '100%'; pl.textContent = 'Network error';
+      showAlert('Cannot reach backend — is Flask running on :5000?', 'error');
+      uploadBtn.disabled = false;
+    }
+  });
+
+  document.getElementById('templateBtn').addEventListener('click', () => {
+    window.open(`${API}/api/admin/packages/template`, '_blank');
+  });
+
+  // ══ PACKAGES TABLE ════════════════════════════════════════════════════════
+  function str(id) { return typeof id === 'object' ? (id.$oid || JSON.stringify(id)) : String(id); }
+
+  function renderSummary() {
+    const pending   = allPackages.filter(p => p.status === 'pending').length;
+    const assignedN = allPackages.filter(p => p.status === 'assigned').length;
+    const unassigned = assigned ? allPackages.filter(p => !assignmentMap[str(p._id)]).length : 0;
+    document.getElementById('summaryBar').innerHTML = `
+      <div class="summary-chip"><div class="chip-dot dot-pending"></div>${pending} pending</div>
+      <div class="summary-chip"><div class="chip-dot dot-assigned"></div>${assignedN} assigned</div>
+      ${assigned && unassigned > 0
+        ? `<div class="summary-chip"><div class="chip-dot dot-amber"></div>${unassigned} unassigned</div>` : ''}`;
+  }
+
+  function renderTable(packages) {
+    const tbody = document.getElementById('tableBody');
+    if (!packages.length) {
+      tbody.innerHTML = `<tr class="state-row"><td colspan="8"><div class="emoji">📭</div><div>No packages found for tomorrow.</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = packages.map(p => {
+      const pid    = str(p._id);
+      const asgn   = assignmentMap[pid];
+      const status = asgn ? 'assigned' : (p.status || 'pending');
+      const isAmber = assigned && !asgn && status !== 'assigned';
+      const badgeClass = status === 'assigned' ? 'badge-assigned'
+                       : status === 'unassigned' ? 'badge-unassigned' : 'badge-pending';
+      const driverCell = asgn
+        ? `<div class="driver-cell">
+             <span class="driver-name">${asgn.driver_name}</span>
+             <span class="cluster-id">Cluster ${asgn.cluster_id || '—'}</span>
+           </div>`
+        : `<span style="color:var(--muted)">—</span>`;
+      return `
+        <tr class="${isAmber ? 'amber' : ''}" data-id="${pid}">
+          <td><input type="checkbox" class="row-check" value="${pid}"/></td>
+          <td class="mono">${(p.package_id || pid.slice(-8)).toUpperCase()}</td>
+          <td>${p.recipient_name || '—'}</td>
+          <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.address || '—'}</td>
+          <td>${p.subarea || p.subarea_name || '—'}</td>
+          <td>${p.weight_kg != null ? Number(p.weight_kg).toFixed(1) : '—'}</td>
+          <td><span class="badge ${badgeClass}">${status}</span></td>
+          <td>${driverCell}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function filterTable() {
+    const q = document.getElementById('searchBox').value.toLowerCase();
+    renderTable(q ? allPackages.filter(p =>
+      (p.recipient_name || '').toLowerCase().includes(q) ||
+      (p.address || '').toLowerCase().includes(q) ||
+      (p.subarea || '').toLowerCase().includes(q) ||
+      (p.package_id || '').toLowerCase().includes(q)
+    ) : allPackages);
+  }
+
+  function toggleAll(master) {
+    document.querySelectorAll('.row-check').forEach(cb => cb.checked = master.checked);
+  }
+
+  async function loadPackages() {
+    try {
+      const res  = await fetch(`${API}/api/admin/packages/tomorrow?warehouse_id=${admin.warehouse_id}`);
+      const data = await res.json();
+      allPackages = data.packages || [];
+      document.getElementById('totalCount').textContent = `${allPackages.length} packages`;
+      renderSummary();
+      renderTable(allPackages);
+    } catch {
+      showAlert('Could not load packages. Is the backend running?', 'error');
+      document.getElementById('tableBody').innerHTML =
+        `<tr class="state-row"><td colspan="8"><div class="emoji">⚠️</div><div>Failed to load packages.</div></td></tr>`;
+    }
+  }
+
+  async function runAssign() {
+    clearAlert();
+    const btn = document.getElementById('assignBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Assigning…';
+    document.getElementById('progressOverlay').classList.add('show');
+    try {
+      const res  = await fetch(`${API}/api/admin/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ warehouse_id: admin.warehouse_id }),
+      });
+      const data = await res.json();
+      document.getElementById('progressOverlay').classList.remove('show');
+      if (data.status === 'ok' || res.ok) {
+        assigned = true;
+        assignmentMap = {};
+        (data.assignments || []).forEach(a => {
+          (a.package_ids || []).forEach(pid => {
+            assignmentMap[pid] = { driver_name: a.driver_name || 'Driver', cluster_id: a.cluster_id || '—' };
+          });
+        });
+        allPackages.forEach(p => { if (assignmentMap[str(p._id)]) p.status = 'assigned'; });
+        const un = (data.unassigned_clusters || []).length;
+        showAlert(
+          un ? `✅ ${data.drivers_used} drivers assigned. ⚠️ ${un} cluster(s) unassigned.`
+             : `✅ All packages assigned to ${data.drivers_used} drivers.`,
+          un ? 'info' : 'success'
+        );
+        renderSummary(); renderTable(allPackages);
+        btn.innerHTML = '✅ Assigned';
+        btn.style.background = 'var(--success)';
+      } else {
+        showAlert('Assignment failed: ' + (data.error || 'Unknown error'), 'error');
+        btn.disabled = false; btn.innerHTML = '⚡ Assign All';
+      }
+    } catch (e) {
+      document.getElementById('progressOverlay').classList.remove('show');
+      showAlert('Request failed: ' + e.message, 'error');
+      btn.disabled = false; btn.innerHTML = '⚡ Assign All';
+    }
+  }
+
+  loadPackages();
+</script>
+</body>
+</html>

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AEQUITAS — Login</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#0f1117;--surface:#1a1d27;--card:#22263a;--accent:#4f8ef7;
+      --accent2:#7c5cfc;--text:#e8eaf0;--muted:#6b7280;--border:#2e3347;
+      --danger:#ef4444;--success:#22c55e;--radius:14px;
+    }
+    body {
+      min-height:100vh;background:var(--bg);color:var(--text);
+      font-family:'Segoe UI',system-ui,sans-serif;
+      display:flex;align-items:center;justify-content:center;padding:24px;
+    }
+    .wrapper { width:100%;max-width:460px; }
+    .logo { text-align:center;margin-bottom:32px; }
+    .logo h1 {
+      font-size:2rem;font-weight:800;letter-spacing:4px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      background-clip:text;-webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;color:transparent;
+    }
+    .logo p { color:var(--muted);font-size:.85rem;margin-top:4px; }
+
+    /* Role selector */
+    .role-selector { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px; }
+    .role-card {
+      background:var(--card);border:2px solid var(--border);
+      border-radius:var(--radius);padding:20px 16px;
+      text-align:center;cursor:pointer;transition:border-color .2s,transform .15s;
+    }
+    .role-card:hover { transform:translateY(-2px); }
+    .role-card.active { border-color:var(--accent); }
+    .role-card .icon { font-size:2rem;margin-bottom:8px; }
+    .role-card .label { font-weight:600;font-size:.95rem; }
+    .role-card .sub { color:var(--muted);font-size:.78rem;margin-top:2px; }
+
+    /* Panel */
+    .panel {
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--radius);padding:28px;display:none;
+    }
+    .panel.visible { display:block; }
+
+    /* Tabs */
+    .tabs {
+      display:flex;gap:4px;background:var(--card);
+      border-radius:8px;padding:4px;margin-bottom:24px;
+    }
+    .tab {
+      flex:1;text-align:center;padding:8px;border-radius:6px;
+      cursor:pointer;font-size:.85rem;color:var(--muted);
+      transition:background .2s,color .2s;
+    }
+    .tab.active { background:var(--accent);color:#fff;font-weight:600; }
+
+    /* Form */
+    .form-group { margin-bottom:16px; }
+    label { display:block;font-size:.82rem;color:var(--muted);margin-bottom:6px; }
+    input, select {
+      width:100%;background:var(--card);border:1px solid var(--border);
+      border-radius:8px;color:var(--text);padding:10px 14px;
+      font-size:.92rem;outline:none;transition:border-color .2s;
+    }
+    input:focus, select:focus { border-color:var(--accent); }
+    select option { background:var(--card); }
+
+    /* Buttons */
+    .btn {
+      width:100%;padding:12px;border:none;border-radius:8px;
+      font-size:.95rem;font-weight:600;cursor:pointer;
+      transition:opacity .2s,transform .15s;
+    }
+    .btn:hover { opacity:.88;transform:translateY(-1px); }
+    .btn:active { transform:translateY(0); }
+    .btn:disabled { opacity:.45;cursor:not-allowed;transform:none; }
+    .btn-primary { background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff; }
+    .btn-google {
+      background:#fff;color:#333;
+      display:flex;align-items:center;justify-content:center;
+      gap:10px;margin-top:12px;font-size:.88rem;
+    }
+    .btn-google img { width:18px; }
+    .divider {
+      display:flex;align-items:center;gap:10px;
+      margin:18px 0;color:var(--muted);font-size:.8rem;
+    }
+    .divider::before,.divider::after { content:'';flex:1;height:1px;background:var(--border); }
+
+    /* Map */
+    #map { height:200px;border-radius:8px;border:1px solid var(--border);margin-bottom:8px; }
+    .map-hint { font-size:.75rem;color:var(--muted);margin-bottom:16px; }
+
+    /* Alerts */
+    .alert { border-radius:8px;padding:10px 14px;font-size:.85rem;margin-bottom:16px;display:none; }
+    .alert.error   { background:#ef44441a;border:1px solid var(--danger);color:#fca5a5; }
+    .alert.success { background:#22c55e1a;border:1px solid var(--success);color:#86efac; }
+    .alert.show { display:block; }
+
+    /* Spinner */
+    .spinner {
+      display:inline-block;width:16px;height:16px;
+      border:2px solid #ffffff44;border-top-color:#fff;
+      border-radius:50%;animation:spin .6s linear infinite;
+      vertical-align:middle;margin-right:6px;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* Admin secret key hint */
+    .key-hint {
+      font-size:.75rem;color:var(--muted);margin-top:4px;
+      padding:6px 10px;background:var(--card);border-radius:6px;
+      border-left:3px solid var(--accent2);
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <div class="logo">
+    <h1>AEQUITAS</h1>
+    <p>Intelligent Delivery Management · v3.0</p>
+  </div>
+
+  <div class="role-selector">
+    <div class="role-card" id="roleAdmin" onclick="selectRole('admin')">
+      <div class="icon">🏢</div><div class="label">Admin</div><div class="sub">Warehouse manager</div>
+    </div>
+    <div class="role-card" id="roleDriver" onclick="selectRole('driver')">
+      <div class="icon">🚚</div><div class="label">Driver</div><div class="sub">Delivery personnel</div>
+    </div>
+  </div>
+
+  <!-- ── ADMIN PANEL ── -->
+  <div class="panel" id="adminPanel">
+    <div class="tabs">
+      <div class="tab active" id="adminTabLogin"  onclick="switchAdminTab('login')">Sign In</div>
+      <div class="tab"        id="adminTabSignup" onclick="switchAdminTab('signup')">Sign Up</div>
+    </div>
+
+    <!-- Admin Login -->
+    <div id="adminLoginForm">
+      <div id="adminLoginAlert" class="alert"></div>
+      <div class="form-group">
+        <label>Warehouse ID</label>
+        <input type="text" id="adminWarehouse" placeholder="e.g. WH001"/>
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="adminUsername" placeholder="Enter username"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="adminPassword" placeholder="Enter password"
+               onkeydown="if(event.key==='Enter') adminLogin()"/>
+      </div>
+      <button class="btn btn-primary" id="adminLoginBtn" onclick="adminLogin()">Sign In</button>
+      <div class="divider">or</div>
+      <button class="btn btn-google" onclick="adminGoogle()">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G"/>
+        Continue with Google
+      </button>
+    </div>
+
+    <!-- Admin Sign Up -->
+    <div id="adminSignupForm" style="display:none">
+      <div id="adminSignupAlert" class="alert"></div>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="regAdminName" placeholder="Your full name"/>
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="regAdminUsername" placeholder="Choose a username"/>
+      </div>
+      <div class="form-group">
+        <label>Warehouse ID</label>
+        <input type="text" id="regAdminWarehouse" placeholder="e.g. WH001"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="regAdminPassword" placeholder="Min 8 characters"/>
+      </div>
+      <div class="form-group">
+        <label>Admin Secret Key</label>
+        <input type="password" id="regAdminSecret" placeholder="Enter secret key"/>
+        <div class="key-hint">🔐 Contact your system administrator for the secret key.</div>
+      </div>
+      <button class="btn btn-primary" id="adminRegisterBtn" onclick="adminRegister()">Create Admin Account</button>
+    </div>
+  </div>
+
+  <!-- ── DRIVER PANEL ── -->
+  <div class="panel" id="driverPanel">
+    <div class="tabs">
+      <div class="tab active" id="tabLogin"  onclick="switchTab('login')">Sign In</div>
+      <div class="tab"        id="tabSignup" onclick="switchTab('signup')">Register</div>
+    </div>
+
+    <!-- Driver Login -->
+    <div id="driverLoginForm">
+      <div id="driverLoginAlert" class="alert"></div>
+      <div class="form-group">
+        <label>Phone Number</label>
+        <input type="tel" id="driverPhone" placeholder="9876543210"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="driverPassword" placeholder="Enter password"
+               onkeydown="if(event.key==='Enter') driverLogin()"/>
+      </div>
+      <button class="btn btn-primary" id="driverLoginBtn" onclick="driverLogin()">Sign In</button>
+      <div class="divider">or</div>
+      <button class="btn btn-google" onclick="driverGoogle()">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G"/>
+        Continue with Google
+      </button>
+    </div>
+
+    <!-- Driver Register -->
+    <div id="driverSignupForm" style="display:none">
+      <div id="driverSignupAlert" class="alert"></div>
+      <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="As per ID"/></div>
+      <div class="form-group"><label>Date of Birth (DD/MM/YYYY)</label><input type="text" id="regDob" placeholder="01/01/1990" maxlength="10"/></div>
+      <div class="form-group"><label>Phone Number</label><input type="tel" id="regPhone" placeholder="9876543210"/></div>
+      <div class="form-group"><label>Password</label><input type="password" id="regPassword" placeholder="Min 8 characters"/></div>
+      <div class="form-group">
+        <label>Vehicle Type</label>
+        <select id="regVehicle">
+          <option value="">Select vehicle</option>
+          <option value="motorcycle">Motorcycle</option>
+          <option value="car">Car</option>
+          <option value="van">Van</option>
+          <option value="truck">Truck</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Years of Experience</label><input type="number" id="regExp" placeholder="0" min="0" max="40"/></div>
+      <div class="form-group"><label>Warehouse ID</label><input type="text" id="regWarehouse" placeholder="e.g. WH001"/></div>
+      <div class="form-group">
+        <label>Home Location (tap map or drag pin)</label>
+        <div id="map"></div>
+        <div class="map-hint" id="mapHint">📍 No location selected</div>
+      </div>
+      <button class="btn btn-primary" id="driverRegisterBtn" onclick="driverRegister()">Create Account</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const API = 'http://localhost:5000';
+  const SESSION_ADMIN  = 'aequitas_admin';
+  const SESSION_DRIVER = 'aequitas_driver';
+
+  // ── Auto-redirect if already logged in ───────────────────────────────────
+  if (localStorage.getItem(SESSION_ADMIN))  window.location.href = 'admin.html';
+  if (localStorage.getItem(SESSION_DRIVER)) window.location.href = 'driver.html';
+
+  // ── Map state ─────────────────────────────────────────────────────────────
+  let homeLat = null, homeLng = null, map = null, marker = null;
+
+  // ── Role selector ─────────────────────────────────────────────────────────
+  function selectRole(role) {
+    document.getElementById('roleAdmin').classList.toggle('active',  role === 'admin');
+    document.getElementById('roleDriver').classList.toggle('active', role === 'driver');
+    document.getElementById('adminPanel').classList.toggle('visible',  role === 'admin');
+    document.getElementById('driverPanel').classList.toggle('visible', role === 'driver');
+    if (role === 'driver' && !map) initMap();
+  }
+
+  // ── Admin tab switch ──────────────────────────────────────────────────────
+  function switchAdminTab(tab) {
+    document.getElementById('adminTabLogin').classList.toggle('active',  tab === 'login');
+    document.getElementById('adminTabSignup').classList.toggle('active', tab === 'signup');
+    document.getElementById('adminLoginForm').style.display  = tab === 'login'  ? 'block' : 'none';
+    document.getElementById('adminSignupForm').style.display = tab === 'signup' ? 'block' : 'none';
+  }
+
+  // ── Driver tab switch ─────────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.getElementById('tabLogin').classList.toggle('active',  tab === 'login');
+    document.getElementById('tabSignup').classList.toggle('active', tab === 'signup');
+    document.getElementById('driverLoginForm').style.display  = tab === 'login'  ? 'block' : 'none';
+    document.getElementById('driverSignupForm').style.display = tab === 'signup' ? 'block' : 'none';
+    if (tab === 'signup' && map) setTimeout(() => map.invalidateSize(), 50);
+  }
+
+  // ── Alert helpers ─────────────────────────────────────────────────────────
+  function showAlert(id, msg, type = 'error') {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = `alert ${type} show`;
+  }
+  function clearAlert(id) { document.getElementById(id).className = 'alert'; }
+
+  function setLoading(btnId, loading, label) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = loading;
+    btn.innerHTML = loading ? '<span class="spinner"></span> Please wait…' : label;
+  }
+
+  // ── Map ───────────────────────────────────────────────────────────────────
+  function initMap() {
+    map = L.map('map').setView([13.0827, 80.2707], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { attribution: '© OpenStreetMap contributors' }).addTo(map);
+    map.on('click', e => placeMarker(e.latlng.lat, e.latlng.lng));
+  }
+  function placeMarker(lat, lng) {
+    homeLat = lat; homeLng = lng;
+    if (marker) map.removeLayer(marker);
+    marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+    marker.on('dragend', e => {
+      homeLat = e.target.getLatLng().lat;
+      homeLng = e.target.getLatLng().lng;
+      document.getElementById('mapHint').textContent = `📍 ${homeLat.toFixed(5)}, ${homeLng.toFixed(5)}`;
+    });
+    document.getElementById('mapHint').textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  }
+
+  // ── API helper ────────────────────────────────────────────────────────────
+  async function post(url, body) {
+    const res = await fetch(API + url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return { ok: res.ok, data: await res.json() };
+  }
+
+  // ── Admin login ───────────────────────────────────────────────────────────
+  async function adminLogin() {
+    clearAlert('adminLoginAlert');
+    const warehouse = document.getElementById('adminWarehouse').value.trim();
+    const username  = document.getElementById('adminUsername').value.trim();
+    const password  = document.getElementById('adminPassword').value;
+    if (!warehouse || !username || !password)
+      return showAlert('adminLoginAlert', 'All fields are required.');
+
+    setLoading('adminLoginBtn', true, 'Sign In');
+    try {
+      const { ok, data } = await post('/api/auth/admin/login', { warehouse_id: warehouse, username, password });
+      if (!ok) return showAlert('adminLoginAlert', data.error || 'Login failed. Check your credentials.');
+      localStorage.setItem(SESSION_ADMIN, JSON.stringify(data));
+      window.location.href = 'admin.html';
+    } catch {
+      showAlert('adminLoginAlert', 'Cannot reach server. Is Flask running on :5000?');
+    } finally {
+      setLoading('adminLoginBtn', false, 'Sign In');
+    }
+  }
+
+  // ── Admin register ────────────────────────────────────────────────────────
+  async function adminRegister() {
+    clearAlert('adminSignupAlert');
+    const name       = document.getElementById('regAdminName').value.trim();
+    const username   = document.getElementById('regAdminUsername').value.trim();
+    const warehouse  = document.getElementById('regAdminWarehouse').value.trim();
+    const password   = document.getElementById('regAdminPassword').value;
+    const secret_key = document.getElementById('regAdminSecret').value;
+
+    if (!name || !username || !warehouse || !password || !secret_key)
+      return showAlert('adminSignupAlert', 'All fields are required.');
+    if (password.length < 8)
+      return showAlert('adminSignupAlert', 'Password must be at least 8 characters.');
+
+    setLoading('adminRegisterBtn', true, 'Create Admin Account');
+    try {
+      const { ok, data } = await post('/api/auth/admin/register', {
+        name, username, warehouse_id: warehouse, password, secret_key
+      });
+      if (!ok) return showAlert('adminSignupAlert', data.error || 'Registration failed.');
+      showAlert('adminSignupAlert', '✅ Account created! Signing you in…', 'success');
+      setTimeout(() => {
+        localStorage.setItem(SESSION_ADMIN, JSON.stringify(data));
+        window.location.href = 'admin.html';
+      }, 1500);
+    } catch {
+      showAlert('adminSignupAlert', 'Cannot reach server. Is Flask running on :5000?');
+    } finally {
+      setLoading('adminRegisterBtn', false, 'Create Admin Account');
+    }
+  }
+
+  async function adminGoogle() {
+    showAlert('adminLoginAlert', 'Google Sign-In requires GOOGLE_CLIENT_ID to be configured.');
+  }
+
+  // ── Driver login ──────────────────────────────────────────────────────────
+  async function driverLogin() {
+    clearAlert('driverLoginAlert');
+    const phone    = document.getElementById('driverPhone').value.trim();
+    const password = document.getElementById('driverPassword').value;
+    if (!phone || !password)
+      return showAlert('driverLoginAlert', 'Phone and password are required.');
+
+    setLoading('driverLoginBtn', true, 'Sign In');
+    try {
+      const { ok, data } = await post('/api/auth/driver/login', { phone, password });
+      if (!ok) return showAlert('driverLoginAlert', data.error || 'Login failed. Check your credentials.');
+      localStorage.setItem(SESSION_DRIVER, JSON.stringify(data));
+      window.location.href = 'driver.html';
+    } catch {
+      showAlert('driverLoginAlert', 'Cannot reach server. Is Flask running on :5000?');
+    } finally {
+      setLoading('driverLoginBtn', false, 'Sign In');
+    }
+  }
+
+  async function driverGoogle() {
+    showAlert('driverLoginAlert', 'Google Sign-In requires GOOGLE_CLIENT_ID to be configured.');
+  }
+
+  // ── Driver register ───────────────────────────────────────────────────────
+  async function driverRegister() {
+    clearAlert('driverSignupAlert');
+    const body = {
+      name:             document.getElementById('regName').value.trim(),
+      dob:              document.getElementById('regDob').value.trim(),
+      phone:            document.getElementById('regPhone').value.trim(),
+      password:         document.getElementById('regPassword').value,
+      vehicle_type:     document.getElementById('regVehicle').value,
+      experience_years: document.getElementById('regExp').value,
+      warehouse_id:     document.getElementById('regWarehouse').value.trim(),
+      home_lat:         homeLat,
+      home_lng:         homeLng,
+    };
+    const missing = Object.entries(body)
+      .filter(([k, v]) => k !== 'home_lat' && k !== 'home_lng' && !v)
+      .map(([k]) => k);
+    if (missing.length) return showAlert('driverSignupAlert', `Missing: ${missing.join(', ')}`);
+    if (!homeLat) return showAlert('driverSignupAlert', 'Please pick your home location on the map.');
+
+    setLoading('driverRegisterBtn', true, 'Create Account');
+    try {
+      const { ok, data } = await post('/api/auth/driver/register', body);
+      if (!ok) return showAlert('driverSignupAlert', data.error || 'Registration failed.');
+      showAlert('driverSignupAlert',
+        `✅ Registered! Tier ${data.capacity_tier} · Age ${data.age}. Redirecting…`, 'success');
+      setTimeout(() => {
+        localStorage.setItem(SESSION_DRIVER, JSON.stringify(data));
+        window.location.href = 'driver.html';
+      }, 1800);
+    } catch {
+      showAlert('driverSignupAlert', 'Cannot reach server. Is Flask running on :5000?');
+    } finally {
+      setLoading('driverRegisterBtn', false, 'Create Account');
+    }
+  }
+</script>
+</body>
+</html>
