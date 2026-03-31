@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AEQUITAS — Entrix Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#080b10;--surface:#0f1420;--card:#151c2c;--border:#1e2a40;
+      --accent:#00d4ff;--accent2:#0099cc;--success:#00e676;--warning:#ffab00;
+      --danger:#ff3d57;--text:#e2e8f0;--muted:#4a5568;--muted2:#718096;
+      --radius:12px;--mono:'DM Mono',monospace;--display:'Syne',sans-serif;
+    }
+    body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh;}
+
+    .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
+    .brand{font-family:var(--display);font-size:1.1rem;font-weight:800;letter-spacing:3px;color:var(--accent);}
+    .topbar-right{display:flex;align-items:center;gap:12px;}
+    .live-badge{display:flex;align-items:center;gap:7px;font-size:.72rem;color:var(--success);letter-spacing:1px;background:#00e67610;border:1px solid #00e67630;border-radius:20px;padding:4px 12px;}
+    .live-dot{width:7px;height:7px;border-radius:50%;background:var(--success);animation:blink 1.2s infinite;}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+    .btn-back{background:transparent;border:1px solid var(--border);color:var(--muted2);padding:5px 14px;border-radius:8px;cursor:pointer;font-size:.75rem;font-family:var(--mono);text-decoration:none;display:flex;align-items:center;gap:6px;transition:border-color .2s,color .2s;}
+    .btn-back:hover{border-color:var(--accent);color:var(--accent);}
+
+    .control-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+    .control-label{font-size:.7rem;color:var(--muted2);letter-spacing:1px;white-space:nowrap;}
+    .date-input{background:var(--card);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:.78rem;padding:7px 12px;border-radius:8px;outline:none;cursor:pointer;transition:border-color .2s;}
+    .date-input:focus{border-color:var(--accent);}
+    .date-input::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.5;cursor:pointer;}
+    .btn-pipeline{background:var(--accent);color:#000;border:none;border-radius:8px;padding:7px 18px;font-size:.75rem;font-family:var(--mono);font-weight:700;cursor:pointer;letter-spacing:.5px;display:flex;align-items:center;gap:7px;transition:opacity .2s;}
+    .btn-pipeline:hover{opacity:.85;}
+    .btn-pipeline:disabled{opacity:.45;cursor:not-allowed;}
+    .btn-reload{background:transparent;border:1px solid var(--border);color:var(--muted2);border-radius:8px;padding:7px 14px;font-size:.75rem;font-family:var(--mono);cursor:pointer;display:flex;align-items:center;gap:6px;transition:border-color .2s,color .2s;}
+    .btn-reload:hover{border-color:var(--accent);color:var(--accent);}
+    .pipeline-status{font-size:.7rem;padding:5px 12px;border-radius:6px;letter-spacing:.5px;display:none;}
+    .pipeline-status.ok{background:#00e67615;color:var(--success);border:1px solid #00e67640;display:block;}
+    .pipeline-status.err{background:#ff3d5715;color:var(--danger);border:1px solid #ff3d5740;display:block;}
+    .pipeline-status.running{background:#00d4ff15;color:var(--accent);border:1px solid #00d4ff40;display:block;}
+
+    .page-header{padding:20px 32px 16px;border-bottom:1px solid var(--border);}
+    .page-title{font-family:var(--display);font-size:1.4rem;font-weight:800;letter-spacing:2px;color:var(--text);}
+    .page-sub{font-size:.72rem;color:var(--muted2);margin-top:4px;letter-spacing:.5px;}
+
+    .summary-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
+    .sum-box{background:var(--surface);padding:16px 24px;text-align:center;}
+    .sum-num{font-family:var(--display);font-size:1.6rem;font-weight:800;color:var(--accent);}
+    .sum-lbl{font-size:.65rem;color:var(--muted2);margin-top:3px;letter-spacing:1px;}
+
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;padding:28px 32px;}
+    .driver-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s,transform .15s;}
+    .driver-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+
+    .card-header{padding:16px 18px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);}
+    .avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#005580);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:1.1rem;font-weight:800;color:#fff;flex-shrink:0;}
+    .card-info{flex:1;min-width:0;}
+    .card-name{font-family:var(--display);font-size:.95rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .card-meta{font-size:.68rem;color:var(--muted2);margin-top:2px;letter-spacing:.5px;}
+    .card-tier{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:.65rem;color:var(--accent);letter-spacing:1px;white-space:nowrap;}
+
+    .card-progress{padding:14px 18px;border-bottom:1px solid var(--border);}
+    .prog-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+    .prog-pct{font-family:var(--display);font-size:1.1rem;font-weight:800;color:var(--accent);}
+    .prog-count{font-size:.7rem;color:var(--muted2);}
+    .prog-track{height:5px;background:var(--bg);border-radius:3px;overflow:hidden;margin-bottom:10px;}
+    .prog-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .6s ease;}
+    .mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+    .mini-stat{background:var(--bg);border-radius:6px;padding:6px;text-align:center;}
+    .mini-num{font-family:var(--display);font-size:.95rem;font-weight:700;}
+    .mini-num.d{color:var(--success);}
+    .mini-num.p{color:var(--warning);}
+    .mini-num.t{color:var(--danger);}
+    .mini-lbl{font-size:.58rem;color:var(--muted2);margin-top:1px;letter-spacing:.5px;}
+
+    .card-qr{padding:16px 18px;display:flex;align-items:center;gap:16px;}
+    .qr-wrap{background:#fff;border-radius:8px;padding:6px;flex-shrink:0;width:102px;height:102px;display:flex;align-items:center;justify-content:center;}
+    .qr-wrap img{display:block;width:90px;height:90px;}
+    .qr-info{flex:1;}
+    .qr-label{font-size:.65rem;color:var(--muted2);letter-spacing:1px;margin-bottom:6px;}
+    .qr-url{font-size:.6rem;color:var(--accent);word-break:break-all;line-height:1.4;margin-bottom:10px;}
+    .btn-open{display:inline-flex;align-items:center;gap:5px;background:var(--accent);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:.68rem;font-family:var(--mono);font-weight:500;cursor:pointer;text-decoration:none;letter-spacing:.5px;transition:opacity .2s;}
+    .btn-open:hover{opacity:.85;}
+    .btn-print{display:inline-flex;align-items:center;gap:5px;background:transparent;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:.68rem;font-family:var(--mono);cursor:pointer;margin-left:6px;letter-spacing:.5px;transition:border-color .2s,color .2s;}
+    .btn-print:hover{border-color:var(--accent);color:var(--accent);}
+
+    .spinner-wrap{display:flex;align-items:center;justify-content:center;height:60vh;gap:12px;color:var(--muted2);}
+    .spinner{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;color:var(--muted2);gap:12px;text-align:center;}
+    .empty .icon{font-size:3rem;opacity:.4;}
+    .refresh-note{text-align:center;padding:10px;font-size:.65rem;color:var(--muted2);border-top:1px solid var(--border);}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">AEQUITAS</div>
+  <div class="topbar-right">
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <a class="btn-back" href="packages.html">← Admin</a>
+  </div>
+</div>
+
+<div class="control-bar">
+  <span class="control-label">DATE</span>
+  <input type="date" id="datePicker" class="date-input"/>
+  <button class="btn-pipeline" id="btnPipeline" onclick="runPipeline()">▶ Run Pipeline</button>
+  <button class="btn-reload" onclick="loadAll()">↺ Reload Cards</button>
+  <span class="pipeline-status" id="pipelineStatus"></span>
+</div>
+
+<div class="page-header">
+  <div class="page-title">ENTRIX PANEL</div>
+  <div class="page-sub" id="pageSubtitle">Loading active drivers…</div>
+</div>
+
+<div class="summary-strip">
+  <div class="sum-box"><div class="sum-num" id="sumDrivers">—</div><div class="sum-lbl">ACTIVE DRIVERS</div></div>
+  <div class="sum-box"><div class="sum-num" id="sumDelivered">—</div><div class="sum-lbl">DELIVERED</div></div>
+  <div class="sum-box"><div class="sum-num" id="sumPending">—</div><div class="sum-lbl">PENDING</div></div>
+  <div class="sum-box"><div class="sum-num" id="sumPct">—</div><div class="sum-lbl">COMPLETION</div></div>
+</div>
+
+<div id="gridRoot">
+  <div class="spinner-wrap"><div class="spinner"></div> Loading drivers…</div>
+</div>
+
+<div class="refresh-note" id="refreshNote"></div>
+
+<script>
+  // ── Config ───────────────────────────────────────────────────────────────────
+  const API          = 'https://aequitas-new.onrender.com';
+  const TRACKER_PAGE = 'https://aequitas-new.onrender.com/tracker.html';
+  const QR_API       = 'https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=';
+
+  // ── Date picker default = today ──────────────────────────────────────────────
+  const picker = document.getElementById('datePicker');
+  picker.value = new Date().toISOString().slice(0, 10);
+
+  function getSelectedDate() {
+    return picker.value || new Date().toISOString().slice(0, 10);
+  }
+
+  picker.addEventListener('change', () => loadAll());
+
+  function qrSrc(url) {
+    return QR_API + encodeURIComponent(url);
+  }
+
+  // ── Pipeline trigger ─────────────────────────────────────────────────────────
+  async function runPipeline() {
+    const date   = getSelectedDate();
+    const btn    = document.getElementById('btnPipeline');
+    const status = document.getElementById('pipelineStatus');
+
+    btn.disabled = true;
+    status.className   = 'pipeline-status running';
+    status.textContent = `⏳ Running pipeline for ${date}…`;
+
+    try {
+      const res  = await fetch(`${API}/api/pipeline/rerun`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ warehouse_id: 'WH001', date }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.status === 'ok') {
+        status.className   = 'pipeline-status ok';
+        status.textContent =
+          `✓ Pipeline done · ${data.assignments?.length ?? 0} assignments · ${data.packages_total ?? 0} packages`;
+        setTimeout(() => loadAll(), 800);
+      } else {
+        const msg = data.errors?.[0] || data.error || 'Unknown error';
+        status.className   = 'pipeline-status err';
+        status.textContent = `✕ ${msg}`;
+      }
+    } catch (e) {
+      status.className   = 'pipeline-status err';
+      status.textContent = '✕ Could not reach Flask backend.';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ── Load driver cards ────────────────────────────────────────────────────────
+  async function loadAll() {
+    const date = getSelectedDate();
+
+    try {
+      const dRes = await fetch(`${API}/api/admin/drivers/active`);
+      if (!dRes.ok) throw new Error(`drivers/active → ${dRes.status}`);
+      const drivers = (await dRes.json()).drivers || [];
+
+      if (!drivers.length) {
+        document.getElementById('gridRoot').innerHTML =
+          `<div class="empty"><div class="icon">🚗</div><p>No active drivers found.</p></div>`;
+        return;
+      }
+
+      const progResults = await Promise.all(
+        drivers.map(d =>
+          fetch(`${API}/api/public/driver/${d._id}/progress?date=${date}`)
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+        )
+      );
+
+      let totDel = 0, totPend = 0, totPkg = 0;
+      progResults.forEach(p => {
+        if (!p?.summary) return;
+        totDel  += p.summary.delivered || 0;
+        totPend += p.summary.pending   || 0;
+        totPkg  += p.summary.total     || 0;
+      });
+      const pct = totPkg ? Math.round((totDel / totPkg) * 100) : 0;
+      document.getElementById('sumDrivers').textContent   = drivers.length;
+      document.getElementById('sumDelivered').textContent = totDel;
+      document.getElementById('sumPending').textContent   = totPend;
+      document.getElementById('sumPct').textContent       = pct + '%';
+
+      const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-IN',
+        { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+      document.getElementById('pageSubtitle').textContent =
+        `${drivers.length} active driver${drivers.length !== 1 ? 's' : ''} · ${dateLabel}`;
+
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+
+      drivers.forEach((d, i) => {
+        const s   = progResults[i]?.summary ?? { total:0, delivered:0, pending:0, turned:0, pct:0 };
+        const ini = (d.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+        const url = `${TRACKER_PAGE}?driver=${d._id}&date=${date}`;
+
+        const card = document.createElement('div');
+        card.className = 'driver-card';
+        card.innerHTML = `
+          <div class="card-header">
+            <div class="avatar">${ini}</div>
+            <div class="card-info">
+              <div class="card-name">${d.name}</div>
+              <div class="card-meta">WH: ${d.warehouse_id || '—'} &nbsp;·&nbsp; ${d.vehicle_type || 'van'}</div>
+            </div>
+            <div class="card-tier">TIER ${d.capacity_tier || '—'}</div>
+          </div>
+          <div class="card-progress">
+            <div class="prog-row">
+              <span class="prog-pct">${s.pct || 0}%</span>
+              <span class="prog-count">${s.delivered || 0} / ${s.total || 0} delivered</span>
+            </div>
+            <div class="prog-track"><div class="prog-fill" style="width:${s.pct || 0}%"></div></div>
+            <div class="mini-stats">
+              <div class="mini-stat"><div class="mini-num d">${s.delivered || 0}</div><div class="mini-lbl">DONE</div></div>
+              <div class="mini-stat"><div class="mini-num p">${s.pending   || 0}</div><div class="mini-lbl">PENDING</div></div>
+              <div class="mini-stat"><div class="mini-num t">${s.turned    || 0}</div><div class="mini-lbl">TURNED</div></div>
+            </div>
+          </div>
+          <div class="card-qr">
+            <div class="qr-wrap">
+              <img src="${qrSrc(url)}" alt="QR for ${d.name}" width="90" height="90"/>
+            </div>
+            <div class="qr-info">
+              <div class="qr-label">SCAN FOR LIVE PROGRESS</div>
+              <div class="qr-url">${url}</div>
+              <a class="btn-open" href="${url}" target="_blank">↗ Open</a>
+              <button class="btn-print" onclick="printQR('${encodeURIComponent(url)}','${d.name}')">🖨 Print</button>
+            </div>
+          </div>`;
+        grid.appendChild(card);
+      });
+
+      const root = document.getElementById('gridRoot');
+      root.innerHTML = '';
+      root.appendChild(grid);
+      document.getElementById('refreshNote').textContent =
+        `Auto-refreshes every 20s · Last updated ${new Date().toLocaleTimeString('en-IN')}`;
+
+    } catch (e) {
+      console.error('loadAll error:', e);
+      document.getElementById('gridRoot').innerHTML =
+        `<div class="empty"><div class="icon">⚠️</div><p>Failed to load driver data.<br>Is the Flask backend running?</p></div>`;
+    }
+  }
+
+  function printQR(encodedUrl, driverName) {
+    const url    = decodeURIComponent(encodedUrl);
+    const imgSrc = QR_API + encodeURIComponent(url);
+    const win    = window.open('', '_blank');
+    win.document.write(`
+      <html><head><title>QR — ${driverName}</title>
+      <style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:monospace;gap:12px;}
+      h2{font-size:1rem;letter-spacing:2px;}p{font-size:.7rem;color:#666;}</style></head>
+      <body>
+        <h2>AEQUITAS — ${driverName.toUpperCase()}</h2>
+        <img src="${imgSrc}" width="200" height="200"/>
+        <p>Scan for live delivery progress</p>
+        <script>window.onload=function(){window.print();window.close();}<\/script>
+      </body></html>`);
+    win.document.close();
+  }
+
+  loadAll();
+  setInterval(loadAll, 20000);
+</script>
+</body>
+</html>

@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AEQUITAS — Admin Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --card:     #22263a;
+      --accent:   #4f8ef7;
+      --accent2:  #7c5cfc;
+      --text:     #e8eaf0;
+      --muted:    #6b7280;
+      --border:   #2e3347;
+      --success:  #22c55e;
+      --warning:  #f59e0b;
+      --danger:   #ef4444;
+      --radius:   14px;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar .brand {
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+    .topbar .meta { color: var(--muted); font-size: .82rem; }
+    .topbar .right { display: flex; align-items: center; gap: 16px; }
+    .admin-badge {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: .82rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .admin-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+    .btn-logout {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: .82rem;
+      transition: border-color .2s, color .2s;
+    }
+    .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── Main layout ── */
+    .main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── Page tabs ── */
+    .page-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 28px;
+      width: fit-content;
+    }
+    .page-tab {
+      padding: 8px 20px;
+      border-radius: 7px;
+      font-size: .88rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      transition: background .2s, color .2s;
+    }
+    .page-tab.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+    }
+
+    /* ── Tab panels ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Section header ── */
+    .section-header { margin-bottom: 20px; }
+    .section-header h2 { font-size: 1.1rem; font-weight: 700; }
+    .section-header p  { color: var(--muted); font-size: .82rem; margin-top: 2px; }
+
+    /* ── Stat cards ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+    .stat-card .label { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-card .value { font-size: 2.2rem; font-weight: 800; margin: 8px 0 4px; }
+    .stat-card .sub   { color: var(--muted); font-size: .8rem; }
+    .stat-card .icon  { position: absolute; right: 20px; top: 20px; font-size: 1.8rem; opacity: .15; }
+
+    /* ── Action buttons ── */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 36px;
+    }
+    .action-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color .2s, transform .15s;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .action-btn:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .action-btn .ab-icon {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .action-btn .ab-text .title { font-weight: 600; font-size: .95rem; }
+    .action-btn .ab-text .desc  { color: var(--muted); font-size: .78rem; margin-top: 2px; }
+
+    /* ── Table ── */
+    .table-wrapper {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: var(--card); }
+    thead th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    tbody tr { border-top: 1px solid var(--border); }
+    tbody tr:hover { background: var(--card); }
+    tbody td { padding: 12px 16px; font-size: .88rem; }
+
+    /* ── Difficulty bar ── */
+    .diff-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .diff-bar { flex: 1; height: 6px; background: var(--card); border-radius: 3px; overflow: hidden; }
+    .diff-bar-fill {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, var(--success), var(--warning), var(--danger));
+    }
+    .diff-val { font-size: .78rem; color: var(--muted); min-width: 28px; text-align: right; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 600;
+    }
+    .badge-assigned  { background: #4f8ef722; color: var(--accent); }
+    .badge-completed { background: #22c55e22; color: var(--success); }
+    .badge-pending   { background: #f59e0b22; color: var(--warning); }
+    .badge-A { background: #22c55e22; color: var(--success); }
+    .badge-B { background: #4f8ef722; color: var(--accent); }
+    .badge-C { background: #f59e0b22; color: var(--warning); }
+    .badge-active   { background: #22c55e22; color: var(--success); }
+    .badge-inactive { background: #ef444422; color: var(--danger); }
+
+    /* ── Driver card header ── */
+    .drivers-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .drivers-count {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: .8rem;
+      color: var(--muted);
+    }
+    .btn-refresh {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: .82rem;
+      transition: border-color .2s;
+    }
+    .btn-refresh:hover { border-color: var(--accent); }
+
+    /* ── Empty / loading ── */
+    .empty { text-align: center; padding: 48px 24px; color: var(--muted); }
+    .empty .emoji { font-size: 2.5rem; margin-bottom: 12px; }
+    .loading { color: var(--muted); font-size: .85rem; padding: 24px 16px; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: #000000bb;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 999;
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      width: 380px;
+      max-width: 95vw;
+      transform: translateY(20px);
+      transition: transform .2s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal h3 { font-size: 1.05rem; margin-bottom: 8px; }
+    .modal p  { color: var(--muted); font-size: .85rem; margin-bottom: 20px; }
+    .modal-actions { display: flex; gap: 10px; }
+    .btn-modal {
+      flex: 1; padding: 11px;
+      border: none; border-radius: 8px;
+      font-size: .88rem; font-weight: 600;
+      cursor: pointer; transition: opacity .2s;
+    }
+    .btn-modal:hover { opacity: .85; }
+    .btn-modal-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+    .btn-modal-ghost   { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="brand">AEQUITAS</div>
+  <div class="right">
+    <div class="meta" id="todayDate">—</div>
+    <div class="admin-badge">
+      <div class="dot"></div>
+      <span id="adminName">Admin</span>
+    </div>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Page tabs -->
+  <div class="page-tabs">
+    <button class="page-tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="page-tab"        onclick="switchTab('drivers')">Drivers</button>
+    <button class="page-tab"        onclick="switchTab('assignments')">Assignments</button>
+  </div>
+
+  <!-- ── TAB: Overview ── -->
+  <div class="tab-panel active" id="tab-overview">
+
+    <div class="section-header">
+      <h2>Today's Overview</h2>
+      <p id="warehouseLabel">Loading warehouse data…</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="icon">🚚</div>
+        <div class="label">Registered Drivers</div>
+        <div class="value" id="statDrivers">—</div>
+        <div class="sub">In your warehouse</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">📦</div>
+        <div class="label">Packages Tomorrow</div>
+        <div class="value" id="statPackages">—</div>
+        <div class="sub">Pending assignment</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">✅</div>
+        <div class="label">Today's Progress</div>
+        <div class="value" id="statProgress">—</div>
+        <div class="sub" id="statProgressSub">Deliveries completed</div>
+      </div>
+    </div>
+
+    <div class="section-header"><h2>Quick Actions</h2></div>
+
+    <div class="actions-grid">
+      <a class="action-btn" href="packages.html">
+        <div class="ab-icon">📦</div>
+        <div class="ab-text">
+          <div class="title">Packages</div>
+          <div class="desc">View & manage tomorrow's deliveries</div>
+        </div>
+      </a>
+      <a class="action-btn" href="driver_onboarding.html">
+        <div class="ab-icon">🚚</div>
+        <div class="ab-text">
+          <div class="title">Add Driver</div>
+          <div class="desc">Register a driver to your warehouse</div>
+        </div>
+      </a>
+      <div class="action-btn" onclick="openEntrix()">
+        <div class="ab-icon">🔑</div>
+        <div class="ab-text">
+          <div class="title">Entrix</div>
+          <div class="desc">Driver check-in & QR access</div>
+        </div>
+      </div>
+      <div class="action-btn" onclick="runPipeline()">
+        <div class="ab-icon">⚙️</div>
+        <div class="ab-text">
+          <div class="title">Run Pipeline</div>
+          <div class="desc">Assign tomorrow's packages now</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── TAB: Drivers ── -->
+  <div class="tab-panel" id="tab-drivers">
+
+    <div class="drivers-header">
+      <div class="section-header" style="margin-bottom:0">
+        <h2>Registered Drivers</h2>
+        <p id="driversWarehouseLabel">Warehouse: —</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="drivers-count" id="driversCount">— drivers</span>
+        <button class="btn-refresh" onclick="loadDrivers()">↻ Refresh</button>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Vehicle</th>
+            <th>Tier</th>
+            <th>Max Difficulty</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="driversBody">
+          <tr><td colspan="6" class="loading">Loading drivers…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ── TAB: Assignments ── -->
+  <div class="tab-panel" id="tab-assignments">
+
+    <div class="section-header">
+      <h2>Today's Assignments</h2>
+      <p>Real-time delivery status per driver</p>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Driver</th>
+            <th>Packages</th>
+            <th>Difficulty</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="assignmentsBody">
+          <tr><td colspan="4" class="loading">Loading assignments…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Entrix Modal -->
+<div class="modal-overlay" id="entrixModal">
+  <div class="modal">
+    <h3>🔑 Entrix — Driver Check-in</h3>
+    <p>Choose how drivers check in for today's route.</p>
+    <div class="modal-actions">
+      <button class="btn-modal btn-modal-primary" onclick="goEntrix('realtime')">📡 Realtime</button>
+      <button class="btn-modal btn-modal-primary" onclick="goEntrix('qr')">📷 QR Scan</button>
+    </div>
+    <br/>
+    <button class="btn-modal btn-modal-ghost" onclick="closeEntrix()">Cancel</button>
+  </div>
+</div>
+
+<script>
+  const API = 'http://localhost:5000';
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const adminRaw = localStorage.getItem('aequitas_admin');
+  if (!adminRaw) { window.location.href = 'login.html'; }
+  const admin = JSON.parse(adminRaw || '{}');
+
+  // ── Topbar ────────────────────────────────────────────────────────────────
+  document.getElementById('adminName').textContent = admin.name || 'Admin';
+  document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-IN', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+  });
+  document.getElementById('warehouseLabel').textContent      = `Warehouse: ${admin.warehouse_id || '—'}`;
+  document.getElementById('driversWarehouseLabel').textContent = `Warehouse: ${admin.warehouse_id || '—'}`;
+
+  // ── Tab switching ─────────────────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.page-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.currentTarget.classList.add('active');
+
+    // Lazy-load on first visit
+    if (name === 'drivers')     loadDrivers();
+    if (name === 'assignments') loadAssignments();
+  }
+
+  // ── Fetch dashboard stats ─────────────────────────────────────────────────
+  async function loadStats() {
+    try {
+      const res  = await fetch(`${API}/api/admin/dashboard?warehouse_id=${admin.warehouse_id}`);
+      const data = await res.json();
+
+      // Use total registered driver count, not just available_dates count
+      const driversRes  = await fetch(`${API}/api/drivers?warehouse_id=${admin.warehouse_id}`);
+      const driversData = await driversRes.json();
+      document.getElementById('statDrivers').textContent = driversData.count ?? '—';
+
+      document.getElementById('statPackages').textContent = data.packages_tomorrow ?? '—';
+      const done  = data.completed ?? 0;
+      const total = data.total_today ?? 0;
+      document.getElementById('statProgress').textContent = total ? `${done}/${total}` : '—';
+      document.getElementById('statProgressSub').textContent =
+        total ? `${Math.round((done / total) * 100)}% complete` : 'No deliveries today';
+    } catch {
+      ['statDrivers','statPackages','statProgress'].forEach(id => {
+        document.getElementById(id).textContent = 'N/A';
+      });
+    }
+  }
+
+  // ── Fetch drivers (warehouse-matched) ─────────────────────────────────────
+  async function loadDrivers() {
+    const tbody = document.getElementById('driversBody');
+    tbody.innerHTML = `<tr><td colspan="6" class="loading">Loading drivers…</td></tr>`;
+    try {
+      const res  = await fetch(`${API}/api/drivers?warehouse_id=${admin.warehouse_id}`);
+      const data = await res.json();
+      const drivers = data.drivers || [];
+
+      document.getElementById('driversCount').textContent =
+        `${drivers.length} driver${drivers.length !== 1 ? 's' : ''}`;
+
+      if (!drivers.length) {
+        tbody.innerHTML = `
+          <tr><td colspan="6">
+            <div class="empty">
+              <div class="emoji">🚚</div>
+              <div>No drivers registered for warehouse ${admin.warehouse_id} yet.</div>
+            </div>
+          </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = drivers.map(d => {
+        const tier       = d.capacity_tier || '—';
+        const tierBadge  = `badge-${tier}`;
+        const active     = d.active !== false;
+        const maxDiff    = d.max_single_route_difficulty ?? d.max_difficulty ?? '—';
+        const pct        = maxDiff !== '—' ? Math.min(Math.round((maxDiff / 126) * 100), 100) : 0;
+
+        return `
+          <tr>
+            <td><strong>${d.name || '—'}</strong></td>
+            <td style="color:var(--muted)">${d.phone || '—'}</td>
+            <td>${d.vehicle_type || '—'}</td>
+            <td><span class="badge ${tierBadge}">Tier ${tier}</span></td>
+            <td>
+              <div class="diff-bar-wrap">
+                <div class="diff-bar">
+                  <div class="diff-bar-fill" style="width:${pct}%"></div>
+                </div>
+                <div class="diff-val">${maxDiff}</div>
+              </div>
+            </td>
+            <td><span class="badge ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Inactive'}</span></td>
+          </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="6" class="loading">Could not load drivers: ${e.message}</td></tr>`;
+    }
+  }
+
+  // ── Fetch assignments ─────────────────────────────────────────────────────
+  async function loadAssignments() {
+    const tbody = document.getElementById('assignmentsBody');
+    try {
+      const res  = await fetch(`${API}/api/assignments/today?warehouse_id=${admin.warehouse_id}`);
+      const data = await res.json();
+      const rows = data.assignments || data;
+
+      if (!rows || !rows.length) {
+        tbody.innerHTML = `
+          <tr><td colspan="4">
+            <div class="empty">
+              <div class="emoji">📭</div>
+              <div>No assignments for today yet.</div>
+            </div>
+          </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(a => {
+        const pct    = Math.min(Math.round((a.total_difficulty / 126) * 100), 100);
+        const status = a.status || 'assigned';
+        const badge  = status === 'completed' ? 'badge-completed'
+                     : status === 'pending'   ? 'badge-pending'
+                     :                          'badge-assigned';
+        return `
+          <tr>
+            <td>${a.driver_name || a.driver_id || '—'}</td>
+            <td>${a.package_count ?? (a.package_ids?.length ?? '—')}</td>
+            <td>
+              <div class="diff-bar-wrap">
+                <div class="diff-bar">
+                  <div class="diff-bar-fill" style="width:${pct}%"></div>
+                </div>
+                <div class="diff-val">${a.total_difficulty ?? '—'}</div>
+              </div>
+            </td>
+            <td><span class="badge ${badge}">${status}</span></td>
+          </tr>`;
+      }).join('');
+    } catch {
+      tbody.innerHTML = `<tr><td colspan="4" class="loading">Could not load assignments.</td></tr>`;
+    }
+  }
+
+  // ── Pipeline trigger ──────────────────────────────────────────────────────
+  async function runPipeline() {
+    if (!confirm('Run the morning pipeline for tomorrow?')) return;
+    try {
+      const res  = await fetch(`${API}/api/pipeline/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ warehouse_id: admin.warehouse_id }),
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        alert(`✅ Pipeline complete!\n${data.packages_total} packages → ${data.drivers_used} drivers.`);
+        loadStats();
+        loadAssignments();
+      } else {
+        alert(`⚠️ Pipeline issues:\n${(data.errors || []).join('\n')}`);
+      }
+    } catch (e) {
+      alert('Pipeline request failed: ' + e.message);
+    }
+  }
+
+  // ── Entrix modal ──────────────────────────────────────────────────────────
+  function openEntrix()  { document.getElementById('entrixModal').classList.add('open'); }
+  function closeEntrix() { document.getElementById('entrixModal').classList.remove('open'); }
+  function goEntrix(mode) {
+    closeEntrix();
+    window.location.href = `entrix.html?mode=${mode}`;
+  }
+
+  // ── Logout ────────────────────────────────────────────────────────────────
+  function logout() {
+    localStorage.removeItem('aequitas_admin');
+    window.location.href = 'login.html';
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  loadStats();
+  setInterval(loadAssignments, 30000);
+</script>
+</body>
+</html>
