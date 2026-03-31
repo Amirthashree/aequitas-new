@@ -135,8 +135,7 @@
   // ── Config ───────────────────────────────────────────────────────────────────
   const LOCAL_IP     = '10.43.232.61';
   const FLASK_PORT   = '5000';
-  // Use same host that served this page (localhost for you, IP for phone scans)
-  const API          = `${window.location.protocol}//${window.location.hostname}:${FLASK_PORT}`;
+  const API          = `http://${LOCAL_IP}:${FLASK_PORT}`;          // ← FIXED
   const TRACKER_PAGE = `http://${LOCAL_IP}:${FLASK_PORT}/tracker.html`;
   const QR_API       = 'https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=';
 
@@ -238,7 +237,6 @@
         const s   = progResults[i]?.summary ?? { total:0, delivered:0, pending:0, turned:0, pct:0 };
         const ini = (d.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-        // QR points to Flask IP — no ngrok needed
         const url = `${TRACKER_PAGE}?driver=${d._id}&date=${date}`;
 
         const card = document.createElement('div');
