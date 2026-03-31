@@ -94,11 +94,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  const isLocal = window.location.hostname === 'localhost' ||
-                  window.location.hostname === '127.0.0.1';
-  const API = isLocal
-    ? 'http://localhost:5000'
-    : `${window.location.protocol}//${window.location.hostname}:5000`;
+  const API = 'https://aequitas-new.onrender.com';  // ← FIXED
 
   const SUBAREA_COORDS = {
     'Anna Nagar':[13.0850,80.2101],'T Nagar':[13.0418,80.2341],'T. Nagar':[13.0418,80.2341],
@@ -232,10 +228,8 @@
 
     map.fitBounds(bounds, {padding:[30,30]});
 
-    // ── Real road routing via OSRM (free, no API key needed) ─────────────────
     if(withCoords.length > 1) {
       const coords    = withCoords.map(x => x.coords);
-      // OSRM expects longitude,latitude order
       const waypoints = coords.map(c => `${c[1]},${c[0]}`).join(';');
       fetch(`https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson`)
         .then(r => r.json())
@@ -245,12 +239,10 @@
               style: { color:'#00d4ff', weight:3.5, opacity:.85 }
             }).addTo(map);
           } else {
-            // OSRM returned no route — fall back to dashed straight lines
             L.polyline(coords, {color:'#00d4ff', weight:2.5, opacity:.7, dashArray:'6,6'}).addTo(map);
           }
         })
         .catch(() => {
-          // Network error — fall back to dashed straight lines
           L.polyline(coords, {color:'#00d4ff', weight:2.5, opacity:.7, dashArray:'6,6'}).addTo(map);
         });
     }
