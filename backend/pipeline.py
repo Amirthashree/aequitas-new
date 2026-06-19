@@ -17,7 +17,6 @@ from bson import ObjectId
 
 from db import get_db
 from cluster import build_clusters          # Phase 5 cluster builder
-from balancer import assign_cluster         # Phase 6 fairness balancer
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
