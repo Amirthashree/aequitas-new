@@ -137,6 +137,12 @@
   const TRACKER_PAGE = 'https://aequitas-new.onrender.com/tracker.html';
   const QR_API       = 'https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=';
 
+  // ── Auth guard — localStorage (matches login.html / packages.html) ────────────
+  const adminRaw = localStorage.getItem('aequitas_admin');
+  if (!adminRaw) { window.location.href = 'login.html'; }
+  const admin = JSON.parse(adminRaw || '{}');
+  const WAREHOUSE_ID = admin.warehouse_id || '';
+
   // ── Date picker default = today ──────────────────────────────────────────────
   const picker = document.getElementById('datePicker');
   picker.value = new Date().toISOString().slice(0, 10);
@@ -165,7 +171,7 @@
       const res  = await fetch(`${API}/api/pipeline/rerun`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ warehouse_id: 'WH001', date }),
+        body:    JSON.stringify({ warehouse_id: WAREHOUSE_ID, date }),
       });
       const data = await res.json();
 
@@ -192,7 +198,7 @@
     const date = getSelectedDate();
 
     try {
-      const dRes = await fetch(`${API}/api/admin/drivers/active`);
+      const dRes = await fetch(`${API}/api/admin/drivers/active?warehouse_id=${WAREHOUSE_ID}`);
       if (!dRes.ok) throw new Error(`drivers/active → ${dRes.status}`);
       const drivers = (await dRes.json()).drivers || [];
 
@@ -226,7 +232,7 @@
       const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-IN',
         { weekday:'long', day:'numeric', month:'long', year:'numeric' });
       document.getElementById('pageSubtitle').textContent =
-        `${drivers.length} active driver${drivers.length !== 1 ? 's' : ''} · ${dateLabel}`;
+        `WH: ${WAREHOUSE_ID || '—'} · ${drivers.length} active driver${drivers.length !== 1 ? 's' : ''} · ${dateLabel}`;
 
       const grid = document.createElement('div');
       grid.className = 'grid';
