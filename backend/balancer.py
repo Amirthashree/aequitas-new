@@ -71,7 +71,7 @@ def fairness_score(driver: dict, cluster: dict) -> float:
     Compute a fairness score for assigning this cluster to this driver.
     Higher = better match. Returns -1.0 if driver cannot take the cluster.
     """
-    max_units     = driver.get("max_single_route_difficulty", 72)
+    max_units     = driver.get("max_single_route_difficulty", driver.get("max_difficulty", 72))
     cluster_units = cluster.get("difficulty_units", 0)
 
     # Hard block — driver cannot take this cluster

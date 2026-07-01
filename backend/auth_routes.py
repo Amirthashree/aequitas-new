@@ -286,7 +286,7 @@ def driver_register():
         "home_lat":         body.get("home_lat"),
         "home_lng":         body.get("home_lng"),
         "capacity_tier":    cap["capacity_tier"],
-        "max_difficulty":   cap["max_single_route_difficulty"],
+        "max_single_route_difficulty": cap["max_single_route_difficulty"],
         "active":           True,
         "available_dates":  [],
         "created_at":       datetime.utcnow().isoformat(),
@@ -295,9 +295,9 @@ def driver_register():
     result = db.drivers.insert_one(driver_doc)
 
     return jsonify({
-        "message":        "Driver registered successfully.",
-        "driver_id":      str(result.inserted_id),
-        "capacity_tier":  cap["capacity_tier"],
-        "max_difficulty": cap["max_single_route_difficulty"],
-        "age":            cap["age"],
+        "message":                     "Driver registered successfully.",
+        "driver_id":                   str(result.inserted_id),
+        "capacity_tier":               cap["capacity_tier"],
+        "max_single_route_difficulty": cap["max_single_route_difficulty"],
+        "age":                         cap["age"],
     }), 201

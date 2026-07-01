@@ -33,11 +33,14 @@ def get_median_ceiling(warehouse_id: str) -> float:
     db = get_db()
     drivers = list(db.drivers.find(
         {"warehouse_id": warehouse_id, "active": True},
-        {"max_single_route_difficulty": 1, "_id": 0}
+        {"max_single_route_difficulty": 1, "max_difficulty": 1, "_id": 0}
     ))
     if not drivers:
         return FALLBACK_MEDIAN_CEILING
-    ceilings = [d.get("max_single_route_difficulty", FALLBACK_MEDIAN_CEILING) for d in drivers]
+    ceilings = [
+        d.get("max_single_route_difficulty", d.get("max_difficulty", FALLBACK_MEDIAN_CEILING))
+        for d in drivers
+    ]
     return median(ceilings)
 
 

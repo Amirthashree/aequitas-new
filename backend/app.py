@@ -371,7 +371,7 @@ def cluster_test():
     from cluster import build_clusters
 
     db       = get_db()
-    subareas = list(db.subareas.find({}, {"_id": 1, "name": 1}))
+    subareas = list(db.subareas.find({}, {"_id": 1, "subarea_name": 1}))
     if not subareas:
         return jsonify({"error": "No subareas found. Run seed.py first."}), 400
 
@@ -408,7 +408,7 @@ def balance_test():
     from balancer import balance
 
     db       = get_db()
-    subareas = list(db.subareas.find({}, {"_id": 1, "name": 1}))
+    subareas = list(db.subareas.find({}, {"_id": 1, "subarea_name": 1}))
     if not subareas:
         return jsonify({"error": "No subareas found."}), 400
 
