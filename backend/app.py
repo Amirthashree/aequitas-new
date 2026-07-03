@@ -7,7 +7,7 @@ import json
 import os
 import random
 
-from flask import Flask, jsonify, request, Response, send_from_directory
+from flask import Flask, jsonify, request, Response, send_from_directory, redirect
 from flask_cors import CORS
 from dotenv import load_dotenv
 from bson import ObjectId
@@ -72,9 +72,37 @@ def serve_tracker():
 def serve_entrix():
     return send_from_directory(FRONTEND_DIR, 'entrix.html')
 
+@app.route('/login.html')
+def serve_login():
+    return send_from_directory(FRONTEND_DIR, 'login.html')
+
+@app.route('/admin.html')
+def serve_admin():
+    return send_from_directory(FRONTEND_DIR, 'admin.html')
+
+@app.route('/dispatcher.html')
+def serve_dispatcher():
+    return send_from_directory(FRONTEND_DIR, 'dispatcher.html')
+
+@app.route('/driver.html')
+def serve_driver():
+    return send_from_directory(FRONTEND_DIR, 'driver.html')
+
+@app.route('/driver_onboarding.html')
+def serve_driver_onboarding():
+    return send_from_directory(FRONTEND_DIR, 'driver_onboarding.html')
+
+@app.route('/packages.html')
+def serve_packages():
+    return send_from_directory(FRONTEND_DIR, 'packages.html')
+
 @app.route('/frontend/<path:filename>')
 def serve_frontend_static(filename):
     return send_from_directory(FRONTEND_DIR, filename)
+
+@app.route('/')
+def serve_root():
+    return redirect('/login.html')
 
 
 # ─── Health check ─────────────────────────────────────────────────────────────
@@ -438,4 +466,3 @@ def balance_test():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', debug=True, port=5000)
-    
