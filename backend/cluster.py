@@ -148,7 +148,7 @@ def score_package_list(packages: list, subarea: dict, G) -> dict:
 
     return {
         "subarea_id":        subarea.get("_id", ""),
-        "subarea_name":      subarea.get("name", ""),
+        "subarea_name":      subarea.get("subarea_name", ""),
         "packages":          packages,
         "package_count":     package_count,
         "total_weight_kg":   round(total_weight, 2),

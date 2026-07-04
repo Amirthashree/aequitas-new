@@ -303,119 +303,55 @@ def download_template():
 
 @admin_pkg_bp.route('/api/admin/assign', methods=['POST'])
 def run_assign():
-    from collections import defaultdict
-    from bson import ObjectId
+    """
+    Runs the real fairness-weighted assignment pipeline (cluster.py difficulty
+    scoring + balancer.py capacity/workload/recency scoring) for this
+    warehouse's pending packages, targeting tomorrow's delivery date.
 
-    db   = get_db()
+    This used to run a separate, simpler nearest-to-farthest + round-robin
+    algorithm with no difficulty scoring or fairness weighting, writing a
+    third, incompatible assignment document shape. It now shares the same
+    engine as POST /api/pipeline/run, so there's one fairness engine and one
+    assignment schema regardless of which button triggered it.
+    """
+    from pipeline import run_morning_pipeline
+
     body = request.get_json() or {}
     warehouse_id = body.get('warehouse_id', '').strip()
 
     if not warehouse_id:
         return jsonify({'error': 'warehouse_id is required'}), 400
 
-    tomorrow = (datetime.utcnow() + timedelta(days=1)).strftime('%Y-%m-%d')
+    result = run_morning_pipeline(warehouse_id)
 
-    # ── Get pending packages ──────────────────────────────────────────────────
-    packages = list(db.packages.find({
-        'warehouse_id': warehouse_id,
-        'delivery_date': tomorrow,
-        'status': 'pending'
-    }))
+    if result.get('status') == 'error':
+        return jsonify({'error': '; '.join(result.get('errors', ['Assignment failed.']))}), 400
 
-    if not packages:
+    if not result.get('assignments') and not result.get('errors'):
         return jsonify({
-            'status': 'ok',
-            'message': 'No pending packages to assign',
+            'status':       'ok',
+            'message':      'No pending packages to assign',
             'drivers_used': 0,
-            'assignments': []
+            'assignments':  []
         }), 200
 
-    # ── Get active drivers ────────────────────────────────────────────────────
-    drivers = list(db.drivers.find({
-        'warehouse_id': warehouse_id,
-        'active': True
-    }))
-
-    if not drivers:
-        return jsonify({'error': 'No active drivers found for this warehouse'}), 400
-
-    # ── Warehouse origin for distance sorting ─────────────────────────────────
-    origin = WAREHOUSE_COORDS.get(warehouse_id, DEFAULT_WAREHOUSE_COORD)
-
-    # ── Sort ALL packages nearest → farthest from warehouse ───────────────────
-    sorted_packages = sort_packages_nearest_to_farthest(packages, origin)
-    # sorted_packages is list of (pkg_doc, distance_km)
-
-    # ── Group packages by subarea (preserving nearest-first order within each) ─
-    subarea_groups  = defaultdict(list)
-    subarea_order   = []   # track first-seen order for subareas
-    for pkg, dist_km in sorted_packages:
-        sa = pkg.get('subarea', 'Unknown')
-        if sa not in subarea_groups:
-            subarea_order.append(sa)
-        subarea_groups[sa].append((pkg, dist_km))
-
-    # ── Assign each subarea cluster to a driver (round-robin) ─────────────────
-    assignments  = []
-    drivers_used = set()
-    driver_index = 0
-    global_route_order = 0   # continuous stop counter across all clusters
-
-    for subarea in subarea_order:
-        pkgs_with_dist = subarea_groups[subarea]
-
-        if driver_index >= len(drivers):
-            driver_index = 0
-
-        driver      = drivers[driver_index]
-        driver_id   = str(driver['_id'])
-        driver_name = driver.get('name', 'Driver')
-
-        package_ids = [str(p['_id']) for p, _ in pkgs_with_dist]
-
-        assignment = {
-            'warehouse_id':  warehouse_id,
-            'driver_id':     driver_id,
-            'driver_name':   driver_name,
-            'delivery_date': tomorrow,
-            'cluster_id':    subarea,
-            'package_ids':   package_ids,
-            'status':        'pending',
-            'created_at':    datetime.utcnow().isoformat()
+    # Translate the pipeline's canonical result into the response shape
+    # packages.html already expects — no frontend changes needed.
+    assignments = [
+        {
+            'assignment_id': a.get('_id', ''),
+            'driver_id':     a.get('driver_id', ''),
+            'driver_name':   a.get('driver_name') or 'Driver',
+            'cluster_id':    a.get('subarea_name') or a.get('cluster_id', '—'),
+            'package_ids':   a.get('package_ids', []),
+            'package_count': len(a.get('package_ids', [])),
         }
-
-        result        = db.assignments.insert_one(assignment)
-        assignment_id = str(result.inserted_id)
-
-        for pkg, dist_km in pkgs_with_dist:
-            db.packages.update_one(
-                {'_id': pkg['_id']},
-                {'$set': {
-                    'status':        'assigned',
-                    'assigned_to':   driver_id,
-                    'cluster_id':    subarea,
-                    'assignment_id': assignment_id,
-                    'route_order':   global_route_order,   # ← stop number
-                    'distance_km':   dist_km,              # ← km from warehouse
-                }}
-            )
-            global_route_order += 1
-
-        assignments.append({
-            'assignment_id': assignment_id,
-            'driver_id':     driver_id,
-            'driver_name':   driver_name,
-            'cluster_id':    subarea,
-            'package_ids':   package_ids,
-            'package_count': len(pkgs_with_dist)
-        })
-
-        drivers_used.add(driver_id)
-        driver_index += 1
+        for a in result.get('assignments', [])
+    ]
 
     return jsonify({
         'status':              'ok',
-        'drivers_used':        len(drivers_used),
+        'drivers_used':        result.get('drivers_used', 0),
         'assignments':         assignments,
-        'unassigned_clusters': []
+        'unassigned_clusters': result.get('unassigned_clusters', []),
     }), 200

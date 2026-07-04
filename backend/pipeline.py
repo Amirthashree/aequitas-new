@@ -148,7 +148,7 @@ def run_morning_pipeline(
     # ── Step 4: Assign clusters to drivers ───────────────────────────────────
     try:
         from balancer import balance
-        bal_result = balance(clusters, drivers)
+        bal_result = balance(clusters, drivers, date_str)
         assignments = bal_result.get("assigned", [])
         unassigned  = bal_result.get("unassigned", [])
     except Exception as exc:
@@ -156,7 +156,10 @@ def run_morning_pipeline(
         result["errors"].append(f"Balancer failed: {exc}")
         return result
 
-    result["unassigned_clusters"] = [str(c.get("_id", c.get("cluster_id", "?"))) for c in unassigned]
+    result["unassigned_clusters"] = [
+        c.get("subarea_name") or str(c.get("subarea_id", "?"))
+        for c in unassigned
+    ]
     result["drivers_used"] = len({a["driver_id"] for a in assignments})
 
     if unassigned:
@@ -176,7 +179,9 @@ def run_morning_pipeline(
                     "date":             date_str,
                     "delivery_date":    date_str,            # ← store both for compatibility
                     "driver_id":        a["driver_id"],
+                    "driver_name":      a.get("driver_name", ""),
                     "cluster_id":       a.get("cluster_id"),
+                    "subarea_name":     a.get("subarea_name", ""),
                     "package_ids":      [str(p["_id"]) if isinstance(p, dict) else str(p)
                                          for p in a.get("packages", [])],
                     "total_difficulty": a.get("difficulty", 0),

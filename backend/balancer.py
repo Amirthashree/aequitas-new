@@ -2,17 +2,25 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Fairness-weighted cluster → driver assignment engine.
 # Called by the morning pipeline (Phase 9).
+#
+# NOTE: balance() is a pure function — it does NOT write to MongoDB.
+# pipeline.py is solely responsible for persisting assignments, using one
+# canonical schema. Previously this module wrote its own assignment doc per
+# cluster (using date.today() and a different schema) IN ADDITION to
+# pipeline.py's write for the same cluster — a double-write bug that also
+# silently broke workload/recency fairness scoring, since those lookups only
+# ever matched this module's own throwaway docs, not the real assignment
+# history written by pipeline.py.
 # ─────────────────────────────────────────────────────────────────────────────
 
 from db import get_db
-from scoring import is_assignable, scale_to_units
 from bson import ObjectId
 from datetime import date
 
 
 # ── Fairness weight constants ─────────────────────────────────────────────────
 W_DIFFICULTY  = 0.50   # How well the cluster fits the driver's ceiling
-W_WORKLOAD    = 0.30   # Prefer drivers with fewer assigned clusters today
+W_WORKLOAD    = 0.30   # Prefer drivers with fewer assigned clusters on target date
 W_RECENCY     = 0.20   # Prefer drivers who haven't had a hard route recently
 
 
@@ -35,41 +43,56 @@ def get_active_drivers(city_id: str) -> list:
     return drivers
 
 
-def get_driver_load_today(driver_id) -> int:
-    """Count how many clusters are already assigned to this driver today."""
+def get_driver_load_today(driver_id, target_date_str: str) -> int:
+    """
+    Count how many clusters are already assigned to this driver for
+    target_date_str, against the canonical assignments schema (field "date"
+    holds the delivery date being planned, not necessarily today's calendar
+    date — the morning pipeline typically plans for tomorrow).
+    """
     db = get_db()
-    today = date.today().isoformat()
     return db.assignments.count_documents({
         "driver_id": str(driver_id),
-        "date": today,
+        "date":      target_date_str,
     })
 
 
-def get_last_hard_route_days(driver_id) -> int:
+def get_last_hard_route_days(driver_id, target_date_str: str) -> int:
     """
-    How many days since this driver last had a route with difficulty_units > 90?
-    Returns 99 if no hard route found (treat as well-rested).
+    How many days before target_date_str did this driver last have a route
+    with total_difficulty > 90? Returns 99 if none found (treat as well-rested).
+
+    Only considers assignments strictly before target_date_str, so this is
+    unaffected by other clusters being assigned to the same driver within the
+    current balance() run.
     """
     db = get_db()
     last = db.assignments.find_one(
         {
             "driver_id":        str(driver_id),
-            "difficulty_units": {"$gt": 90},
+            "total_difficulty": {"$gt": 90},
+            "date":             {"$lt": target_date_str},
         },
         sort=[("date", -1)],
     )
     if not last:
         return 99
 
-    from datetime import date as dt
-    last_date = dt.fromisoformat(last["date"])
-    return (dt.today() - last_date).days
+    target    = date.fromisoformat(target_date_str)
+    last_date = date.fromisoformat(last["date"])
+    return (target - last_date).days
 
 
-def fairness_score(driver: dict, cluster: dict) -> float:
+def fairness_score(driver: dict, cluster: dict, workload: dict, recency_days: dict) -> float:
     """
     Compute a fairness score for assigning this cluster to this driver.
     Higher = better match. Returns -1.0 if driver cannot take the cluster.
+
+    workload and recency_days are precomputed per-driver dicts (keyed by
+    str(driver_id)) for the current balance() run. workload is mutated by
+    the caller as clusters get tentatively assigned within the run; recency
+    is static for the run since it only depends on history strictly before
+    target_date_str.
     """
     max_units     = driver.get("max_single_route_difficulty", driver.get("max_difficulty", 72))
     cluster_units = cluster.get("difficulty_units", 0)
@@ -81,10 +104,11 @@ def fairness_score(driver: dict, cluster: dict) -> float:
     fit_ratio      = cluster_units / max_units if max_units else 0
     difficulty_fit = fit_ratio
 
-    load         = get_driver_load_today(driver["_id"])
+    did          = str(driver["_id"])
+    load         = workload.get(did, 0)
     workload_fit = 1.0 / (1.0 + load)
 
-    days_since  = get_last_hard_route_days(driver["_id"])
+    days_since  = recency_days.get(did, 99)
     recency_fit = min(days_since / 7.0, 1.0)
 
     score = (
@@ -106,43 +130,23 @@ def sanitize(obj):
     return obj
 
 
-def _write_assignment(cluster: dict, driver: dict) -> dict:
-    """Write an assignment document to MongoDB and return it."""
-    db    = get_db()
-    today = date.today().isoformat()
-
-    doc = {
-        "date":              today,
-        "driver_id":         str(driver["_id"]),
-        "driver_name":       driver.get("name", ""),
-        "subarea_id":        str(cluster.get("subarea_id", "")),
-        "subarea_name":      cluster.get("subarea_name", ""),
-        "package_count":     cluster.get("package_count", 0),
-        "total_weight_kg":   cluster.get("total_weight_kg", 0),
-        "route_distance_km": cluster.get("route_distance_km", 0),
-        "difficulty_units":  cluster.get("difficulty_units", 0),
-        "difficulty_score":  cluster.get("difficulty_score", 0),
-        "breakdown":         cluster.get("breakdown", {}),
-        "packages":          sanitize(cluster.get("packages", [])),
-        "status":            "pending",
-    }
-
-    result         = db.assignments.insert_one(doc)
-    doc["_id"]     = str(result.inserted_id)
-    return doc
-
-
-def balance(clusters: list, drivers) -> dict:
+def balance(clusters: list, drivers, target_date_str: str) -> dict:
     """
     Main function. Assigns each cluster to the best available driver.
+    Pure function — does NOT write to MongoDB. The caller (pipeline.py)
+    persists the returned assignments using one canonical schema.
 
     Args:
-        clusters:  Sorted list from cluster.build_clusters() — hardest first.
-        drivers:   List of driver dicts OR a city_id/warehouse_id string (legacy).
+        clusters:        Sorted list from cluster.build_clusters() — hardest first.
+        drivers:         List of driver dicts OR a city_id/warehouse_id string (legacy).
+        target_date_str: The delivery date (YYYY-MM-DD) being planned for. Used
+                          to correctly look up each driver's existing workload
+                          and recency history for that specific date.
 
     Returns:
         {
-            "assigned":   [ { driver_id, cluster_id, difficulty, packages } ],
+            "assigned":   [ { driver_id, driver_name, cluster_id, subarea_name,
+                               difficulty, packages, fairness_score } ],
             "unassigned": [ cluster, ... ],
         }
     """
@@ -153,6 +157,17 @@ def balance(clusters: list, drivers) -> dict:
     if not drivers:
         return {"assigned": [], "unassigned": clusters}
 
+    # Seed per-driver state for this run. workload starts from real assignment
+    # history for target_date_str and is incremented in-memory as clusters get
+    # assigned within this run (so a single run still spreads load evenly,
+    # without needing to write to the DB before the run completes).
+    workload     = {}
+    recency_days = {}
+    for d in drivers:
+        did               = str(d["_id"])
+        workload[did]     = get_driver_load_today(d["_id"], target_date_str)
+        recency_days[did] = get_last_hard_route_days(d["_id"], target_date_str)
+
     assigned   = []
     unassigned = []
 
@@ -161,7 +176,7 @@ def balance(clusters: list, drivers) -> dict:
         best_score  = -1.0
 
         for driver in drivers:
-            score = fairness_score(driver, cluster)
+            score = fairness_score(driver, cluster, workload, recency_days)
             if score > best_score:
                 best_score  = score
                 best_driver = driver
@@ -170,14 +185,16 @@ def balance(clusters: list, drivers) -> dict:
             unassigned.append(cluster)
             continue
 
-        assignment = _write_assignment(cluster, best_driver)
+        did = str(best_driver["_id"])
+        workload[did] = workload.get(did, 0) + 1
+
         assigned.append({
-            "driver_id":      str(best_driver["_id"]),
+            "driver_id":      did,
+            "driver_name":    best_driver.get("name", ""),
             "cluster_id":     str(cluster.get("subarea_id", "")),
+            "subarea_name":   cluster.get("subarea_name", ""),
             "difficulty":     cluster.get("difficulty_units", 0),
             "packages":       sanitize(cluster.get("packages", [])),
-            "assignment_id":  assignment["_id"],
-            "driver_name":    best_driver.get("name", ""),
             "fairness_score": best_score,
         })
 
