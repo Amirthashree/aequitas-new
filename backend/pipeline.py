@@ -135,6 +135,9 @@ def run_morning_pipeline(
     try:
         clusters = build_clusters(packages, city_id)
     except Exception as exc:
+        import traceback
+        print(f"[pipeline] Clustering failed with exception: {exc}", flush=True)
+        traceback.print_exc()
         result["status"] = "error"
         result["errors"].append(f"Clustering failed: {exc}")
         return result

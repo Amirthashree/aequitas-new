@@ -50,16 +50,32 @@ def load_osm_graph(warehouse_id: str):
     Uses a cached .graphml file if present, otherwise downloads from OSM.
     """
     import os
+    import time
     import osmnx as ox  # lazy import — only loaded when pipeline actually runs
 
     key = warehouse_id.lower().replace(" ", "_")
     cache_path = f"models/{key}_walk.graphml"
+    abs_path   = os.path.abspath(cache_path)
+
+    print(f"[load_osm_graph] warehouse_id={warehouse_id!r} looking for cache at {abs_path}", flush=True)
 
     if os.path.exists(cache_path):
-        return ox.load_graphml(cache_path)
+        size_mb = os.path.getsize(cache_path) / (1024 * 1024)
+        print(f"[load_osm_graph] cache FOUND ({size_mb:.1f} MB) — loading...", flush=True)
+        t0 = time.time()
+        G = ox.load_graphml(cache_path)
+        elapsed = time.time() - t0
+        print(f"[load_osm_graph] cache loaded in {elapsed:.1f}s — "
+              f"{G.number_of_nodes()} nodes, {G.number_of_edges()} edges", flush=True)
+        return G
 
+    print(f"[load_osm_graph] cache NOT FOUND at {abs_path} — falling back to live OSM download "
+          f"(this can take several minutes)", flush=True)
     query = WAREHOUSE_CITY_MAP.get(warehouse_id, "Chennai, Tamil Nadu, India")
+    t0 = time.time()
     G = ox.graph_from_place(query, network_type="walk")
+    elapsed = time.time() - t0
+    print(f"[load_osm_graph] live download completed in {elapsed:.1f}s", flush=True)
     os.makedirs("models", exist_ok=True)
     ox.save_graphml(G, cache_path)
     return G
