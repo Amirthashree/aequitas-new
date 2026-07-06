@@ -6,3 +6,5 @@ backend/models/*
 !backend/models/chennai_walk.graphml
 *.pkl
 .DS_Store
+
+backend/cache/

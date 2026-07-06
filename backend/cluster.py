@@ -24,6 +24,79 @@ WAREHOUSE_CITY_MAP = {
     "mumbai":  "Mumbai, Maharashtra, India",
 }
 
+# The actual delivery subareas in use — used to build a small bounding-box
+# graph instead of downloading/loading a whole-city network. A full city
+# walk network (millions of nodes for a metro like Chennai) uses far more
+# RAM once loaded than a free-tier instance typically has available; this
+# app only ever computes routes within a single subarea's packages, so a
+# small network around just these known zones is sufficient and dramatically
+# smaller than a whole-city download.
+DELIVERY_SUBAREA_QUERIES = {
+    "chennai": [
+        "Anna Nagar West, Chennai, India",
+        "Sholinganallur, Chennai, India",
+        "Vijaya Nagar, Chennai, India",
+        "Tambaram, Chennai, India",
+        "Perungudi, Chennai, India",
+        "Adyar, Chennai, India",
+        "Velachery, Chennai, India",
+        "Porur, Chennai, India",
+    ],
+}
+
+# Radius (in meters) of the walk network built around each subarea's center
+# point. Kept deliberately small — a delivery cluster's packages are all
+# within a single neighborhood, not spread across the whole city.
+SUBAREA_RADIUS_METERS = 2500
+
+
+def get_delivery_area_graph(city_id: str):
+    """
+    Build a graph covering this city's known delivery subareas by combining
+    several SMALL, radius-limited networks (one per subarea) rather than one
+    bounding box spanning all of them.
+
+    Why not a single bounding box: these subareas are geographically
+    scattered across a wide span of the city (tens of km apart in some
+    cases), so a box that stretches to cover all of them ends up covering
+    almost the entire metro area anyway — no smaller than downloading the
+    whole city, and sometimes larger, since a bounding rectangle also
+    includes all the empty space between subareas that a request never
+    actually needs. Building small networks around each point individually
+    and unioning them together avoids that entirely.
+
+    Uses point geocoding (ox.geocode) rather than polygon geocoding
+    (ox.geocode_to_gdf), since many informal neighborhood names don't have a
+    defined boundary polygon in OpenStreetMap and would raise a TypeError —
+    a point lookup works for nearly any place name.
+
+    Requires network access to OSM's geocoding/Overpass services — used only
+    when building or rebuilding the cached graph, not on the normal request
+    path.
+    """
+    import osmnx as ox
+    import networkx as nx
+
+    queries = DELIVERY_SUBAREA_QUERIES.get(city_id, DELIVERY_SUBAREA_QUERIES["chennai"])
+
+    graphs = []
+    for q in queries:
+        try:
+            lat, lon = ox.geocode(q)
+            print(f"  Building network around '{q}' ({lat:.4f}, {lon:.4f}), "
+                  f"{SUBAREA_RADIUS_METERS}m radius...", flush=True)
+            G = ox.graph_from_point((lat, lon), dist=SUBAREA_RADIUS_METERS, network_type="walk")
+            graphs.append(G)
+        except Exception as exc:
+            print(f"  WARNING: could not build network for '{q}' ({exc}) — skipping this subarea", flush=True)
+            continue
+
+    if not graphs:
+        raise RuntimeError("Could not build a graph for any delivery subarea — check network access and query names.")
+
+    combined = nx.compose_all(graphs)
+    return combined
+
 
 def get_median_ceiling(warehouse_id: str) -> float:
     """
@@ -70,12 +143,12 @@ def load_osm_graph(warehouse_id: str):
         return G
 
     print(f"[load_osm_graph] cache NOT FOUND at {abs_path} — falling back to live OSM download "
-          f"(this can take several minutes)", flush=True)
-    query = WAREHOUSE_CITY_MAP.get(warehouse_id, "Chennai, Tamil Nadu, India")
+          f"(small networks around known subareas, not the whole city)", flush=True)
     t0 = time.time()
-    G = ox.graph_from_place(query, network_type="walk")
+    G = get_delivery_area_graph(key)
     elapsed = time.time() - t0
-    print(f"[load_osm_graph] live download completed in {elapsed:.1f}s", flush=True)
+    print(f"[load_osm_graph] live download completed in {elapsed:.1f}s — "
+          f"{G.number_of_nodes()} nodes, {G.number_of_edges()} edges", flush=True)
     os.makedirs("models", exist_ok=True)
     ox.save_graphml(G, cache_path)
     return G
