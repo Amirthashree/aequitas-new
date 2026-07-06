@@ -306,7 +306,8 @@ def run_assign():
     """
     Runs the real fairness-weighted assignment pipeline (cluster.py difficulty
     scoring + balancer.py capacity/workload/recency scoring) for this
-    warehouse's pending packages, targeting tomorrow's delivery date.
+    warehouse's pending packages, targeting the requested delivery date
+    (defaults to tomorrow if none is provided).
 
     This used to run a separate, simpler nearest-to-farthest + round-robin
     algorithm with no difficulty scoring or fairness weighting, writing a
@@ -315,6 +316,7 @@ def run_assign():
     assignment schema regardless of which button triggered it.
     """
     from pipeline import run_morning_pipeline
+    from datetime import datetime as dt
 
     body = request.get_json() or {}
     warehouse_id = body.get('warehouse_id', '').strip()
@@ -322,7 +324,15 @@ def run_assign():
     if not warehouse_id:
         return jsonify({'error': 'warehouse_id is required'}), 400
 
-    result = run_morning_pipeline(warehouse_id)
+    target_date = None
+    delivery_date_str = body.get('delivery_date', '').strip()
+    if delivery_date_str:
+        try:
+            target_date = dt.strptime(delivery_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': f"Invalid delivery_date format: '{delivery_date_str}'. Expected YYYY-MM-DD."}), 400
+
+    result = run_morning_pipeline(warehouse_id, target_date=target_date)
 
     if result.get('status') == 'error':
         return jsonify({'error': '; '.join(result.get('errors', ['Assignment failed.']))}), 400
